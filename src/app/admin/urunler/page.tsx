@@ -3,197 +3,676 @@ import { useState, useEffect, useRef, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import AdminNavbar from '@/components/layout/AdminNavbar'
 import AdminGuard from '@/components/layout/AdminGuard'
-import api, { productApi } from '@/lib/api'
+import api from '@/lib/api'
 import toast from 'react-hot-toast'
-import { Upload, RefreshCw, TrendingUp, ToggleLeft, ToggleRight, Download } from 'lucide-react'
+import {
+  Upload, TrendingUp, ToggleLeft, ToggleRight, Download,
+  Save, Search, RefreshCw, Edit2, Trash2, Loader2
+} from 'lucide-react'
+
+const KATEGORILER = [
+  { slug: 'buyuk-format', label: 'Büyük Format', icon: '🖼️' },
+  { slug: 'kartvizit',    label: 'Kartvizit',    icon: '🪪' },
+  { slug: 'sticker',      label: 'Sticker',       icon: '🏷️' },
+  { slug: 'tabela',       label: 'Tabela',        icon: '🪧' },
+  { slug: 'brosur',       label: 'Broşür',        icon: '📄' },
+  { slug: 'promosyon',    label: 'Promosyon',     icon: '🎁' },
+]
+
+const PRICING_MODELS = [
+  { val: 'AREA_BASED',      label: 'Alan bazlı (m²)' },
+  { val: 'TIERED_QUANTITY', label: 'Adet kademeli' },
+  { val: 'PACKAGE',         label: 'Paket fiyatı' },
+  { val: 'UNIT',            label: 'Adet bazlı' },
+]
+
+const UNITS = ['m2', 'adet', 'paket', 'tabaka']
+
+interface Product {
+  id: string; name: string; slug: string
+  pricingModel: string; unit: string
+  minOrder: number; description: string; isActive: boolean
+  imageUrl?: string
+}
+
+interface UrunForm {
+  name: string; slug: string; kategoriSlug: string
+  pricingModel: string; unit: string
+  minOrder: number; description: string; basePrice: number
+  imageUrl: string
+}
+
+const EMPTY: UrunForm = {
+  name: '', slug: '', kategoriSlug: 'buyuk-format',
+  pricingModel: 'AREA_BASED', unit: 'm2',
+  minOrder: 1, description: '', basePrice: 0, imageUrl: '',
+}
+
+function slugify(str: string) {
+  return str.toLowerCase()
+    .replace(/ğ/g,'g').replace(/ü/g,'u').replace(/ş/g,'s')
+    .replace(/ı/g,'i').replace(/ö/g,'o').replace(/ç/g,'c')
+    .replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'')
+}
 
 function UrunlerContent() {
   const params = useSearchParams()
-  const [tab, setTab] = useState(params.get('tab') === 'import' ? 'import' : 'list')
-  const [products, setProducts] = useState<any[]>([])
+  const [tab, setTab] = useState<'list'|'ekle'|'import'|'fiyat'>(
+    params.get('tab') === 'import' ? 'import' : 'list'
+  )
+  const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
+  const [search, setSearch] = useState('')
+  const [aktifKat, setAktifKat] = useState('tumu')
+  const [form, setForm] = useState<UrunForm>(EMPTY)
+  const [editId, setEditId] = useState<string|null>(null)
+  const [formLoading, setFormLoading] = useState(false)
   const [importing, setImporting] = useState(false)
   const [importResult, setImportResult] = useState<any>(null)
   const [bulkType, setBulkType] = useState('PERCENT_INCREASE')
   const [bulkValue, setBulkValue] = useState(10)
-  const [bulkCategory, setBulkCategory] = useState('')
+  const [bulkKat, setBulkKat] = useState('')
   const [bulkLoading, setBulkLoading] = useState(false)
+  const [togglingId, setTogglingId] = useState<string|null>(null)
+  const [deletingId, setDeletingId] = useState<string|null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
 
-  const loadProducts = () => {
+  const load = () => {
     setLoading(true)
-    api.get('/api/admin/products').then(r => setProducts(r.data.data || [])).finally(() => setLoading(false))
+    api.get('/api/products')
+      .then(r => setProducts(r.data.data || []))
+      .catch(() => toast.error('Ürünler yüklenemedi'))
+      .finally(() => setLoading(false))
   }
 
-  useEffect(() => { loadProducts() }, [])
+  useEffect(() => { load() }, [])
+
+  const setName = (name: string) => {
+    setForm(f => ({
+      ...f, name,
+      slug: editId ? f.slug : f.kategoriSlug + '-' + slugify(name)
+    }))
+  }
+
+  const setKategori = (kat: string) => {
+    const defaults: Record<string,{unit:string;pricingModel:string}> = {
+      'buyuk-format': { unit: 'm2',    pricingModel: 'AREA_BASED' },
+      'tabela':       { unit: 'm2',    pricingModel: 'AREA_BASED' },
+      'kartvizit':    { unit: 'paket', pricingModel: 'PACKAGE' },
+      'brosur':       { unit: 'paket', pricingModel: 'PACKAGE' },
+      'sticker':      { unit: 'adet',  pricingModel: 'TIERED_QUANTITY' },
+      'promosyon':    { unit: 'adet',  pricingModel: 'UNIT' },
+    }
+    const d = defaults[kat] || { unit: 'adet', pricingModel: 'UNIT' }
+    setForm(f => ({
+      ...f, kategoriSlug: kat, ...d,
+      slug: editId ? f.slug : kat + (f.name ? '-' + slugify(f.name) : '')
+    }))
+  }
+
+  const resetForm = () => { setForm(EMPTY); setEditId(null) }
+
+  const handleSave = async () => {
+    if (!form.name || !form.slug || form.basePrice <= 0) {
+      toast.error('Ad, slug ve fiyat zorunlu')
+      return
+    }
+    setFormLoading(true)
+    try {
+      if (editId) {
+        await api.put(`/api/admin/products/${editId}`, form)
+        toast.success('Ürün güncellendi')
+      } else {
+        await api.post('/api/admin/products', form)
+        toast.success('Ürün eklendi')
+      }
+      resetForm()
+      setTab('list')
+      load()
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Kayıt başarısız')
+    } finally { setFormLoading(false) }
+  }
+
+  const handleEdit = (p: Product) => {
+    const kat = KATEGORILER.find(k => p.slug.startsWith(k.slug))?.slug || 'buyuk-format'
+    setForm({
+      name: p.name, slug: p.slug, kategoriSlug: kat,
+      pricingModel: p.pricingModel, unit: p.unit,
+      minOrder: p.minOrder, description: p.description,
+      basePrice: 0, imageUrl: p.imageUrl || '',
+    })
+    setEditId(p.id)
+    setTab('ekle')
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  const handleToggle = async (id: string) => {
+    setTogglingId(id)
+    try {
+      await api.patch(`/api/admin/products/${id}/toggle`)
+      setProducts(ps => ps.map(p => p.id === id ? {...p, isActive: !p.isActive} : p))
+    } catch { toast.error('Güncellenemedi') }
+    finally { setTogglingId(null) }
+  }
+
+  const handleDelete = async (p: Product) => {
+    if (!confirm(`"${p.name}" ürününü silmek istediğinize emin misiniz?`)) return
+    setDeletingId(p.id)
+    try {
+      await api.delete(`/api/admin/products/${p.id}`)
+      toast.success('Ürün silindi')
+      setProducts(ps => ps.filter(x => x.id !== p.id))
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Silinemedi')
+    } finally { setDeletingId(null) }
+  }
 
   const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
-    setImporting(true)
-    const fd = new FormData()
-    fd.append('file', file)
+    setImporting(true); setImportResult(null)
+    const fd = new FormData(); fd.append('file', file)
     try {
       const res = await api.post('/api/admin/products/import', fd, {
         headers: { 'Content-Type': 'multipart/form-data' }
       })
       setImportResult(res.data.data)
-      toast.success(`${res.data.data.imported} ürün eklendi, ${res.data.data.updated} güncellendi`)
-      loadProducts()
+      toast.success(`${res.data.data.imported} eklendi, ${res.data.data.updated} güncellendi`)
+      load()
     } catch { toast.error('Import başarısız') }
-    finally { setImporting(false) }
+    finally { setImporting(false); if(fileRef.current) fileRef.current.value = '' }
   }
 
-  const handleBulkPrice = async () => {
+  const handleBulk = async () => {
     setBulkLoading(true)
     try {
       const res = await api.patch('/api/admin/products/bulk-price', {
-        categorySlug: bulkCategory || undefined,
-        updateType: bulkType,
-        value: Number(bulkValue),
+        categorySlug: bulkKat || undefined,
+        updateType: bulkType, value: Number(bulkValue),
       })
-      toast.success(`${res.data.data.updatedRules} fiyat kuralı güncellendi`)
-      loadProducts()
-    } catch { toast.error('Fiyat güncelleme başarısız') }
+      toast.success(`${res.data.data?.updatedRules || '?'} fiyat kuralı güncellendi`)
+      load()
+    } catch { toast.error('Toplu güncelleme başarısız') }
     finally { setBulkLoading(false) }
   }
 
-  const handleToggle = async (id: string) => {
-    try {
-      await api.patch(`/api/admin/products/${id}/toggle`)
-      loadProducts()
-      toast.success('Durum güncellendi')
-    } catch { toast.error('Güncelleme başarısız') }
+  const downloadTemplate = () => {
+    const csv = [
+      'urun_adi,kategori,fiyatlandirma_modeli,birim,liste_fiyati,min_adet,aciklama,aktif',
+      'Vinil Baskı 440gr,buyuk-format,AREA_BASED,m2,185,1,Yüksek kalite vinil baskı,1',
+      'Kartvizit 350g Mat,kartvizit,PACKAGE,paket,180,250,350gr mat laminasyon,1',
+      'Sticker Parlak,sticker,TIERED_QUANTITY,adet,8,10,Parlak yüzey sticker,1',
+    ].join('\n')
+    const a = document.createElement('a')
+    a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' }))
+    a.download = 'urun-sablonu.csv'; a.click()
   }
 
-  const downloadTemplate = () => {
-    const csv = 'urun_adi,kategori,birim,liste_fiyati,min_adet,aciklama,aktif\nVinil Baskı,buyuk-format,m2,185,1,Yüksek kalite vinil baskı,1\nKartvizit 350g Mat,kartvizit,paket,180,250,350gr mat kartvizit,1'
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url; a.download = 'urun-sablonu.csv'; a.click()
+  const filtered = products.filter(p => {
+    const katMatch = aktifKat === 'tumu' || p.slug.startsWith(aktifKat)
+    const searchMatch = !search ||
+      p.name.toLowerCase().includes(search.toLowerCase()) ||
+      p.slug.includes(search.toLowerCase())
+    return katMatch && searchMatch
+  })
+
+  const grouped = KATEGORILER.map(k => ({
+    ...k,
+    items: filtered.filter(p => p.slug.startsWith(k.slug))
+  })).filter(g => g.items.length > 0)
+
+  const counts = {
+    tumu: products.length,
+    aktif: products.filter(p => p.isActive).length,
+    pasif: products.filter(p => !p.isActive).length,
   }
 
   return (
     <AdminGuard>
       <AdminNavbar />
-      <main className="min-h-screen bg-gray-50 dark:bg-[#0a0a0a]">
-        <div className="max-w-7xl mx-auto px-6 py-10">
+      <main className="min-h-screen" style={{ background: 'var(--bg-secondary)' }}>
+        <div className="max-w-7xl mx-auto px-6 py-8">
+
+          {/* Başlık + tab */}
           <div className="flex items-center justify-between mb-6">
             <div>
-              <h1 className="text-[22px] font-medium tracking-[-0.5px] text-gray-900 dark:text-gray-100">Ürün yönetimi</h1>
-              <p className="text-[13px] text-gray-400 mt-0.5">{products.length} aktif ürün</p>
+              <h1 className="text-[22px] font-bold tracking-[-0.5px]" style={{ color: 'var(--text-primary)' }}>
+                Ürün Yönetimi
+              </h1>
+              <p className="text-[13px] mt-0.5" style={{ color: 'var(--text-muted)' }}>
+                {counts.tumu} ürün · {counts.aktif} aktif · {counts.pasif} pasif
+              </p>
             </div>
             <div className="flex gap-2">
-              <button onClick={() => setTab('list')}
-                className={`text-[12px] px-4 py-2 rounded-lg border transition-colors ${tab === 'list' ? 'bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 border-transparent' : 'border-black/[0.08] dark:border-white/[0.08] text-gray-500'}`}>
-                Ürün listesi
-              </button>
-              <button onClick={() => setTab('import')}
-                className={`text-[12px] px-4 py-2 rounded-lg border transition-colors ${tab === 'import' ? 'bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 border-transparent' : 'border-black/[0.08] dark:border-white/[0.08] text-gray-500'}`}>
-                Excel import
-              </button>
-              <button onClick={() => setTab('price')}
-                className={`text-[12px] px-4 py-2 rounded-lg border transition-colors ${tab === 'price' ? 'bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 border-transparent' : 'border-black/[0.08] dark:border-white/[0.08] text-gray-500'}`}>
-                Fiyat güncelle
+              {([
+                { key: 'list',   label: 'Ürün Listesi' },
+                { key: 'ekle',   label: editId ? '✏️ Düzenle' : '+ Yeni Ürün' },
+                { key: 'import', label: '📥 Excel Import' },
+                { key: 'fiyat',  label: '💰 Toplu Fiyat' },
+              ] as const).map(t => (
+                <button key={t.key}
+                  onClick={() => { setTab(t.key); if(t.key !== 'ekle') resetForm() }}
+                  className="text-[12px] px-4 py-2 rounded-lg border transition-colors font-medium"
+                  style={{
+                    background: tab === t.key ? 'var(--text-primary)' : 'var(--bg-card)',
+                    color: tab === t.key ? 'var(--bg-primary)' : 'var(--text-secondary)',
+                    borderColor: 'var(--border)',
+                  }}>
+                  {t.label}
+                </button>
+              ))}
+              <button onClick={load}
+                className="w-9 h-9 rounded-lg flex items-center justify-center"
+                style={{ border: '1px solid var(--border)', background: 'var(--bg-card)', color: 'var(--text-muted)' }}>
+                <RefreshCw size={13} />
               </button>
             </div>
           </div>
 
-          {/* ÜRÜN LİSTESİ */}
+          {/* ── ÜRÜN LİSTESİ ── */}
           {tab === 'list' && (
-            <div className="bg-white dark:bg-[#141414] border border-black/[0.07] dark:border-white/[0.07] rounded-xl overflow-hidden">
-              <div className="grid grid-cols-[1fr_120px_100px_80px_80px] text-[11px] font-medium text-gray-400 px-5 py-3 border-b border-black/[0.07] dark:border-white/[0.07] uppercase tracking-[0.5px]">
-                <span>Ürün adı</span>
-                <span>Kategori</span>
-                <span>Birim</span>
-                <span>Min adet</span>
-                <span className="text-right">Durum</span>
-              </div>
-              <div className="divide-y divide-black/[0.05] dark:divide-white/[0.05]">
-                {loading ? (
-                  Array.from({ length: 7 }).map((_, i) => (
-                    <div key={i} className="px-5 py-4 animate-pulse">
-                      <div className="h-3 bg-gray-100 dark:bg-white/[0.05] rounded w-1/2" />
-                    </div>
-                  ))
-                ) : products.map((p: any) => (
-                  <div key={p.id} className="grid grid-cols-[1fr_120px_100px_80px_80px] items-center px-5 py-3.5 hover:bg-gray-50 dark:hover:bg-white/[0.02] transition-colors">
-                    <div>
-                      <p className="text-[13px] font-medium text-gray-900 dark:text-gray-100">{p.name}</p>
-                      <p className="text-[11px] text-gray-400 mt-0.5">{p.slug}</p>
-                    </div>
-                    <span className="text-[12px] text-gray-500">{p.pricingModel}</span>
-                    <span className="text-[12px] text-gray-500">{p.unit}</span>
-                    <span className="text-[12px] text-gray-500">{p.minOrder}</span>
-                    <div className="flex justify-end">
-                      <button onClick={() => handleToggle(p.id)} className="text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors">
-                        {p.isActive
-                          ? <ToggleRight size={22} className="text-emerald-500" />
-                          : <ToggleLeft size={22} />}
+            <div>
+              <div className="flex items-center gap-3 mb-5">
+                <div className="relative flex-1 max-w-[280px]">
+                  <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2"
+                    style={{ color: 'var(--text-muted)' }} />
+                  <input value={search} onChange={e => setSearch(e.target.value)}
+                    placeholder="Ürün adı veya slug..."
+                    className="w-full pl-8 pr-3 py-2 text-[13px] rounded-lg outline-none"
+                    style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', color: 'var(--text-primary)' }} />
+                </div>
+                <div className="flex gap-1.5 flex-wrap">
+                  <button onClick={() => setAktifKat('tumu')}
+                    className="text-[11px] px-3 py-1.5 rounded-lg border transition-colors"
+                    style={{
+                      background: aktifKat === 'tumu' ? 'var(--text-primary)' : 'var(--bg-card)',
+                      color: aktifKat === 'tumu' ? 'var(--bg-primary)' : 'var(--text-muted)',
+                      borderColor: 'var(--border)',
+                    }}>
+                    Tümü ({counts.tumu})
+                  </button>
+                  {KATEGORILER.map(k => {
+                    const n = products.filter(p => p.slug.startsWith(k.slug)).length
+                    return (
+                      <button key={k.slug} onClick={() => setAktifKat(k.slug)}
+                        className="text-[11px] px-3 py-1.5 rounded-lg border transition-colors"
+                        style={{
+                          background: aktifKat === k.slug ? 'var(--text-primary)' : 'var(--bg-card)',
+                          color: aktifKat === k.slug ? 'var(--bg-primary)' : 'var(--text-muted)',
+                          borderColor: 'var(--border)',
+                        }}>
+                        {k.icon} {k.label} ({n})
                       </button>
+                    )
+                  })}
+                </div>
+              </div>
+
+              {loading ? (
+                <div className="flex justify-center py-16">
+                  <Loader2 size={24} className="animate-spin text-[#F4821F]" />
+                </div>
+              ) : filtered.length === 0 ? (
+                <div className="text-center py-14 text-[14px]" style={{ color: 'var(--text-muted)' }}>
+                  {search ? `"${search}" için ürün bulunamadı` : 'Ürün bulunamadı'}
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  {(aktifKat === 'tumu' ? grouped : [{
+                    ...KATEGORILER.find(k => k.slug === aktifKat)!,
+                    items: filtered
+                  }]).map(g => (
+                    <div key={g.slug}>
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="text-[16px]">{g.icon}</span>
+                        <h2 className="text-[12px] font-bold uppercase tracking-[1.5px]"
+                          style={{ color: 'var(--text-muted)' }}>{g.label}</h2>
+                        <span className="text-[11px] px-2 py-0.5 rounded-full"
+                          style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', color: 'var(--text-muted)' }}>
+                          {g.items.length}
+                        </span>
+                      </div>
+
+                      <div className="rounded-xl overflow-hidden" style={{ border: '1px solid var(--border)' }}>
+                        <div className="grid grid-cols-[48px_1fr_110px_90px_70px_90px_90px] px-4 py-2.5 text-[10px] font-bold uppercase tracking-[0.8px]"
+                          style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border)', color: 'var(--text-muted)' }}>
+                          <span>Resim</span>
+                          <span>Ürün adı / Slug</span>
+                          <span>Fiyatlandırma</span>
+                          <span>Birim</span>
+                          <span>Min.</span>
+                          <span>Durum</span>
+                          <span className="text-right">İşlem</span>
+                        </div>
+
+                        <div className="divide-y" style={{ borderColor: 'var(--border)' }}>
+                          {g.items.map(p => (
+                            <div key={p.id}
+                              className="grid grid-cols-[48px_1fr_110px_90px_70px_90px_90px] items-center px-4 py-3 transition-colors"
+                              style={{ background: 'var(--bg-card)' }}>
+
+                              {/* Resim */}
+                              <div>
+                                {p.imageUrl
+                                  ? <img src={p.imageUrl} alt={p.name}
+                                      className="w-9 h-9 rounded-lg object-cover"
+                                      style={{ border: '1px solid var(--border)' }}
+                                      onError={e => (e.currentTarget.style.display = 'none')} />
+                                  : <div className="w-9 h-9 rounded-lg flex items-center justify-center text-[16px]"
+                                      style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)' }}>
+                                      {KATEGORILER.find(k => p.slug.startsWith(k.slug))?.icon || '📦'}
+                                    </div>
+                                }
+                              </div>
+
+                              <div>
+                                <p className="text-[13px] font-medium" style={{ color: 'var(--text-primary)' }}>
+                                  {p.name}
+                                </p>
+                                <p className="text-[10px] font-mono mt-0.5" style={{ color: 'var(--text-muted)' }}>
+                                  {p.slug}
+                                </p>
+                                {p.description && (
+                                  <p className="text-[11px] mt-0.5 truncate max-w-[280px]"
+                                    style={{ color: 'var(--text-muted)' }}>
+                                    {p.description}
+                                  </p>
+                                )}
+                              </div>
+
+                              <span className="text-[11px]" style={{ color: 'var(--text-secondary)' }}>
+                                {PRICING_MODELS.find(m => m.val === p.pricingModel)?.label || p.pricingModel}
+                              </span>
+                              <span className="text-[11px]" style={{ color: 'var(--text-secondary)' }}>{p.unit}</span>
+                              <span className="text-[11px]" style={{ color: 'var(--text-secondary)' }}>{p.minOrder}</span>
+
+                              <div>
+                                {p.isActive
+                                  ? <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold"
+                                      style={{ background: 'rgba(16,185,129,0.1)', color: '#10B981', border: '1px solid rgba(16,185,129,0.2)' }}>
+                                      Aktif
+                                    </span>
+                                  : <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold"
+                                      style={{ background: 'rgba(107,114,128,0.1)', color: '#6B7280', border: '1px solid rgba(107,114,128,0.2)' }}>
+                                      Pasif
+                                    </span>
+                                }
+                              </div>
+
+                              <div className="flex items-center justify-end gap-1.5">
+                                <button onClick={() => handleEdit(p)} title="Düzenle"
+                                  className="w-7 h-7 rounded-lg flex items-center justify-center transition-colors hover:text-[#F4821F]"
+                                  style={{ border: '1px solid var(--border)', background: 'var(--bg-secondary)', color: 'var(--text-muted)' }}>
+                                  <Edit2 size={12} />
+                                </button>
+                                <button onClick={() => handleToggle(p.id)} disabled={togglingId === p.id}
+                                  title={p.isActive ? 'Pasife al' : 'Aktife al'}
+                                  className="w-7 h-7 rounded-lg flex items-center justify-center transition-colors"
+                                  style={{ border: '1px solid var(--border)', background: 'var(--bg-secondary)', color: 'var(--text-muted)' }}>
+                                  {togglingId === p.id
+                                    ? <Loader2 size={12} className="animate-spin" />
+                                    : p.isActive ? <ToggleRight size={14} className="text-emerald-500" /> : <ToggleLeft size={14} />}
+                                </button>
+                                <button onClick={() => handleDelete(p)} disabled={deletingId === p.id}
+                                  title="Sil"
+                                  className="w-7 h-7 rounded-lg flex items-center justify-center transition-colors hover:text-red-500"
+                                  style={{ border: '1px solid var(--border)', background: 'var(--bg-secondary)', color: 'var(--text-muted)' }}>
+                                  {deletingId === p.id ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />}
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ── YENİ ÜRÜN / DÜZENLE ── */}
+          {tab === 'ekle' && (
+            <div className="max-w-2xl">
+              <div className="rounded-2xl p-6 space-y-5"
+                style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
+
+                <div className="flex items-center justify-between">
+                  <p className="text-[15px] font-bold" style={{ color: 'var(--text-primary)' }}>
+                    {editId ? 'Ürünü Düzenle' : 'Yeni Ürün Ekle'}
+                  </p>
+                  {editId && (
+                    <button onClick={resetForm} className="text-[11px] text-[#F4821F] hover:underline">
+                      Yeni ürüne geç
+                    </button>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+
+                  {/* Kategori */}
+                  <div className="col-span-2">
+                    <label className="block text-[11px] font-bold uppercase tracking-[1px] mb-2"
+                      style={{ color: 'var(--text-muted)' }}>Kategori *</label>
+                    <div className="flex gap-2 flex-wrap">
+                      {KATEGORILER.map(k => (
+                        <button key={k.slug} type="button" onClick={() => setKategori(k.slug)}
+                          className="flex items-center gap-1.5 text-[12px] px-3 py-1.5 rounded-lg border transition-colors"
+                          style={{
+                            background: form.kategoriSlug === k.slug ? '#F4821F' : 'var(--bg-secondary)',
+                            color: form.kategoriSlug === k.slug ? 'white' : 'var(--text-secondary)',
+                            borderColor: form.kategoriSlug === k.slug ? '#F4821F' : 'var(--border)',
+                            fontWeight: form.kategoriSlug === k.slug ? 600 : 400,
+                          }}>
+                          {k.icon} {k.label}
+                        </button>
+                      ))}
                     </div>
                   </div>
-                ))}
+
+                  {/* Ürün adı */}
+                  <div className="col-span-2">
+                    <label className="block text-[11px] font-bold uppercase tracking-[1px] mb-2"
+                      style={{ color: 'var(--text-muted)' }}>Ürün adı *</label>
+                    <input value={form.name} onChange={e => setName(e.target.value)}
+                      placeholder="Vinil Baskı 440gr"
+                      className="w-full px-3.5 py-2.5 text-[13px] rounded-lg outline-none"
+                      style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', color: 'var(--text-primary)' }} />
+                  </div>
+
+                  {/* Slug */}
+                  <div className="col-span-2">
+                    <label className="block text-[11px] font-bold uppercase tracking-[1px] mb-2"
+                      style={{ color: 'var(--text-muted)' }}>Slug (otomatik)</label>
+                    <input value={form.slug} onChange={e => setForm(f => ({...f, slug: e.target.value}))}
+                      className="w-full px-3.5 py-2.5 text-[12px] rounded-lg outline-none font-mono"
+                      style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', color: 'var(--text-muted)' }} />
+                  </div>
+
+                  {/* Fiyatlandırma */}
+                  <div>
+                    <label className="block text-[11px] font-bold uppercase tracking-[1px] mb-2"
+                      style={{ color: 'var(--text-muted)' }}>Fiyatlandırma *</label>
+                    <select value={form.pricingModel}
+                      onChange={e => setForm(f => ({...f, pricingModel: e.target.value}))}
+                      className="w-full px-3.5 py-2.5 text-[13px] rounded-lg outline-none"
+                      style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}>
+                      {PRICING_MODELS.map(m => <option key={m.val} value={m.val}>{m.label}</option>)}
+                    </select>
+                  </div>
+
+                  {/* Birim */}
+                  <div>
+                    <label className="block text-[11px] font-bold uppercase tracking-[1px] mb-2"
+                      style={{ color: 'var(--text-muted)' }}>Birim *</label>
+                    <select value={form.unit}
+                      onChange={e => setForm(f => ({...f, unit: e.target.value}))}
+                      className="w-full px-3.5 py-2.5 text-[13px] rounded-lg outline-none"
+                      style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}>
+                      {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
+                    </select>
+                  </div>
+
+                  {/* Min sipariş */}
+                  <div>
+                    <label className="block text-[11px] font-bold uppercase tracking-[1px] mb-2"
+                      style={{ color: 'var(--text-muted)' }}>Min. Sipariş *</label>
+                    <input type="number" min="1" value={form.minOrder}
+                      onChange={e => setForm(f => ({...f, minOrder: +e.target.value}))}
+                      className="w-full px-3.5 py-2.5 text-[13px] rounded-lg outline-none"
+                      style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', color: 'var(--text-primary)' }} />
+                  </div>
+
+                  {/* Baz fiyat */}
+                  <div>
+                    <label className="block text-[11px] font-bold uppercase tracking-[1px] mb-2"
+                      style={{ color: 'var(--text-muted)' }}>Baz fiyat (₺ / {form.unit}) *</label>
+                    <input type="number" min="0" step="0.01" value={form.basePrice || ''}
+                      onChange={e => setForm(f => ({...f, basePrice: +e.target.value}))}
+                      placeholder="185.00"
+                      className="w-full px-3.5 py-2.5 text-[13px] rounded-lg outline-none"
+                      style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', color: 'var(--text-primary)' }} />
+                  </div>
+
+                  {/* Açıklama */}
+                  <div className="col-span-2">
+                    <label className="block text-[11px] font-bold uppercase tracking-[1px] mb-2"
+                      style={{ color: 'var(--text-muted)' }}>Açıklama</label>
+                    <textarea value={form.description}
+                      onChange={e => setForm(f => ({...f, description: e.target.value}))}
+                      rows={2} placeholder="Kısa ürün açıklaması..."
+                      className="w-full px-3.5 py-2.5 text-[13px] rounded-lg outline-none resize-none"
+                      style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', color: 'var(--text-primary)' }} />
+                  </div>
+
+                  {/* Resim URL */}
+                  <div className="col-span-2">
+                    <label className="block text-[11px] font-bold uppercase tracking-[1px] mb-2"
+                      style={{ color: 'var(--text-muted)' }}>Ürün Görseli (URL)</label>
+                    <div className="flex items-center gap-3">
+                      {form.imageUrl && (
+                        <img src={form.imageUrl} alt="önizleme"
+                          className="w-14 h-14 rounded-xl object-cover flex-shrink-0"
+                          style={{ border: '1px solid var(--border)' }}
+                          onError={e => (e.currentTarget.style.display = 'none')} />
+                      )}
+                      <input value={form.imageUrl}
+                        onChange={e => setForm(f => ({...f, imageUrl: e.target.value}))}
+                        placeholder="https://images.unsplash.com/..."
+                        className="flex-1 px-3.5 py-2.5 text-[12px] rounded-lg outline-none"
+                        style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', color: 'var(--text-primary)' }} />
+                    </div>
+                    <p className="text-[11px] mt-1.5" style={{ color: 'var(--text-muted)' }}>
+                      Unsplash veya herhangi bir resim URL'i girin. URL girince önizleme görünür.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex gap-3 pt-2">
+                  <button onClick={() => { resetForm(); setTab('list') }}
+                    className="px-5 py-2.5 text-[13px] rounded-lg border transition-colors"
+                    style={{ border: '1px solid var(--border)', color: 'var(--text-secondary)', background: 'var(--bg-secondary)' }}>
+                    İptal
+                  </button>
+                  <button onClick={handleSave} disabled={formLoading}
+                    className="flex items-center gap-2 px-6 py-2.5 text-[13px] font-bold text-white rounded-lg transition-colors disabled:opacity-50"
+                    style={{ background: '#F4821F' }}>
+                    {formLoading
+                      ? <><Loader2 size={14} className="animate-spin" /> Kaydediliyor...</>
+                      : <><Save size={14} /> {editId ? 'Güncelle' : 'Kaydet'}</>}
+                  </button>
+                </div>
               </div>
             </div>
           )}
 
-          {/* EXCEL IMPORT */}
+          {/* ── EXCEL IMPORT ── */}
           {tab === 'import' && (
-            <div className="space-y-4">
-              <div className="bg-white dark:bg-[#141414] border border-black/[0.07] dark:border-white/[0.07] rounded-xl p-6">
+            <div className="max-w-2xl space-y-4">
+              <div className="rounded-2xl p-6"
+                style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
                 <div className="flex items-center justify-between mb-5">
                   <div>
-                    <p className="text-[14px] font-medium text-gray-900 dark:text-gray-100">Toplu ürün yükle</p>
-                    <p className="text-[12px] text-gray-400 mt-1">CSV veya Excel dosyası ile ürünleri toplu ekle veya güncelle</p>
+                    <p className="text-[15px] font-bold" style={{ color: 'var(--text-primary)' }}>
+                      Excel / CSV ile Toplu Import
+                    </p>
+                    <p className="text-[12px] mt-0.5" style={{ color: 'var(--text-muted)' }}>
+                      CSV veya Excel dosyasıyla ürünleri toplu ekle veya güncelle
+                    </p>
                   </div>
                   <button onClick={downloadTemplate}
-                    className="flex items-center gap-1.5 text-[12px] text-gray-500 px-3 py-2 rounded-lg border border-black/[0.08] dark:border-white/[0.08] hover:bg-gray-50 dark:hover:bg-white/[0.04] transition-colors">
-                    <Download size={13} /> Şablonu indir
+                    className="flex items-center gap-1.5 text-[12px] px-3 py-2 rounded-lg transition-colors"
+                    style={{ border: '1px solid var(--border)', color: 'var(--text-secondary)', background: 'var(--bg-secondary)' }}>
+                    <Download size={13} /> Şablon indir
                   </button>
                 </div>
 
-                <div className="mb-4 bg-gray-50 dark:bg-white/[0.03] rounded-lg p-3.5">
-                  <p className="text-[11px] font-medium text-gray-500 dark:text-gray-400 mb-1.5 uppercase tracking-[0.5px]">Zorunlu kolonlar</p>
-                  <div className="flex flex-wrap gap-2">
-                    {['urun_adi', 'kategori', 'birim', 'liste_fiyati'].map(c => (
-                      <code key={c} className="text-[11px] px-2 py-0.5 rounded bg-gray-200 dark:bg-white/[0.08] text-gray-700 dark:text-gray-300">{c}</code>
+                <div className="mb-5 p-3 rounded-xl"
+                  style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)' }}>
+                  <p className="text-[10px] font-bold uppercase tracking-[1px] mb-2" style={{ color: 'var(--text-muted)' }}>
+                    Zorunlu kolonlar
+                  </p>
+                  <div className="flex flex-wrap gap-2 mb-2">
+                    {['urun_adi', 'kategori', 'liste_fiyati'].map(c => (
+                      <code key={c} className="text-[11px] px-2 py-0.5 rounded"
+                        style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', color: '#F4821F' }}>
+                        {c}
+                      </code>
                     ))}
-                    <span className="text-[11px] text-gray-400">+ opsiyonel: min_adet, aciklama, aktif</span>
                   </div>
+                  <p className="text-[10px] font-bold uppercase tracking-[1px] mb-2" style={{ color: 'var(--text-muted)' }}>
+                    Opsiyonel kolonlar
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {['fiyatlandirma_modeli', 'birim', 'min_adet', 'aciklama', 'aktif'].map(c => (
+                      <code key={c} className="text-[11px] px-2 py-0.5 rounded"
+                        style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', color: 'var(--text-muted)' }}>
+                        {c}
+                      </code>
+                    ))}
+                  </div>
+                  <p className="text-[11px] mt-2" style={{ color: 'var(--text-muted)' }}>
+                    Kategori değerleri: buyuk-format, kartvizit, sticker, tabela, brosur, promosyon
+                  </p>
                 </div>
 
-                <label className={`block border-2 border-dashed rounded-xl p-10 text-center cursor-pointer transition-colors ${importing ? 'border-[#F4821F] bg-orange-50 dark:bg-orange-500/10' : 'border-black/[0.1] dark:border-white/[0.1] hover:border-[#F4821F]'}`}>
-                  <Upload size={28} className={`mx-auto mb-3 ${importing ? 'text-[#F4821F]' : 'text-gray-300'}`} />
-                  <p className="text-[14px] font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    {importing ? 'Yükleniyor...' : 'CSV veya Excel dosyasını sürükle / tıkla'}
+                <label className={`block border-2 border-dashed rounded-xl p-10 text-center cursor-pointer transition-colors ${
+                  importing ? 'border-[#F4821F]' : 'hover:border-[#F4821F]'}`}
+                  style={{ borderColor: importing ? '#F4821F' : 'var(--border-strong)' }}>
+                  {importing
+                    ? <Loader2 size={28} className="mx-auto mb-3 animate-spin text-[#F4821F]" />
+                    : <Upload size={28} className="mx-auto mb-3" style={{ color: 'var(--text-muted)' }} />}
+                  <p className="text-[14px] font-medium mb-1" style={{ color: 'var(--text-primary)' }}>
+                    {importing ? 'Import ediliyor...' : 'Dosyayı sürükle veya tıkla'}
                   </p>
-                  <p className="text-[12px] text-gray-400">.csv · .xlsx · Maks 5MB</p>
-                  <input ref={fileRef} type="file" accept=".csv,.xlsx,.xls" className="hidden"
-                    onChange={handleImport} disabled={importing} />
+                  <p className="text-[12px]" style={{ color: 'var(--text-muted)' }}>.csv · .xlsx · Maks 5MB</p>
+                  <input ref={fileRef} type="file" accept=".csv,.xlsx,.xls"
+                    className="hidden" onChange={handleImport} disabled={importing} />
                 </label>
               </div>
 
               {importResult && (
-                <div className="bg-white dark:bg-[#141414] border border-black/[0.07] dark:border-white/[0.07] rounded-xl p-5">
-                  <p className="text-[13px] font-medium text-gray-900 dark:text-gray-100 mb-4">Import sonucu</p>
+                <div className="rounded-2xl p-5"
+                  style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
+                  <p className="text-[14px] font-bold mb-4" style={{ color: 'var(--text-primary)' }}>Import Sonucu</p>
                   <div className="grid grid-cols-4 gap-3 mb-4">
                     {[
-                      { label: 'Toplam satır', value: importResult.totalRows, color: 'text-gray-900 dark:text-gray-100' },
-                      { label: 'Eklendi', value: importResult.imported, color: 'text-emerald-600' },
-                      { label: 'Güncellendi', value: importResult.updated, color: 'text-blue-600' },
-                      { label: 'Hata', value: importResult.errors, color: 'text-red-500' },
+                      { l: 'Toplam Satır', v: importResult.totalRows, c: 'var(--text-primary)' },
+                      { l: 'Eklendi',      v: importResult.imported,  c: '#10B981' },
+                      { l: 'Güncellendi',  v: importResult.updated,   c: '#3B82F6' },
+                      { l: 'Hata',         v: importResult.errors,    c: '#EF4444' },
                     ].map((m, i) => (
-                      <div key={i} className="bg-gray-50 dark:bg-white/[0.03] rounded-lg p-3 text-center">
-                        <p className={`text-[20px] font-medium ${m.color}`}>{m.value}</p>
-                        <p className="text-[11px] text-gray-400 mt-0.5">{m.label}</p>
+                      <div key={i} className="p-3 rounded-xl text-center"
+                        style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)' }}>
+                        <p className="text-[22px] font-black" style={{ color: m.c }}>{m.v}</p>
+                        <p className="text-[11px] mt-0.5" style={{ color: 'var(--text-muted)' }}>{m.l}</p>
                       </div>
                     ))}
                   </div>
                   {importResult.errorMessages?.length > 0 && (
-                    <div className="bg-red-50 dark:bg-red-500/10 rounded-lg p-3">
-                      <p className="text-[11px] font-medium text-red-600 mb-1">Hatalar:</p>
+                    <div className="p-3 rounded-lg"
+                      style={{ background: 'rgba(239,68,68,0.05)', border: '1px solid rgba(239,68,68,0.2)' }}>
                       {importResult.errorMessages.map((e: string, i: number) => (
                         <p key={i} className="text-[11px] text-red-500">{e}</p>
                       ))}
@@ -204,37 +683,43 @@ function UrunlerContent() {
             </div>
           )}
 
-          {/* FİYAT GÜNCELLEME */}
-          {tab === 'price' && (
-            <div className="bg-white dark:bg-[#141414] border border-black/[0.07] dark:border-white/[0.07] rounded-xl p-6 max-w-lg">
-              <p className="text-[14px] font-medium text-gray-900 dark:text-gray-100 mb-1">Toplu fiyat güncelleme</p>
-              <p className="text-[12px] text-gray-400 mb-5">Tüm ürünlere veya belirli bir kategoriye fiyat işlemi uygula</p>
+          {/* ── TOPLU FİYAT ── */}
+          {tab === 'fiyat' && (
+            <div className="max-w-lg">
+              <div className="rounded-2xl p-6 space-y-5"
+                style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
+                <p className="text-[15px] font-bold" style={{ color: 'var(--text-primary)' }}>
+                  Toplu Fiyat Güncelleme
+                </p>
 
-              <div className="space-y-4">
                 <div>
-                  <label className="block text-[12px] font-medium text-gray-700 dark:text-gray-300 mb-1.5">Kategori (boş = tüm ürünler)</label>
-                  <select value={bulkCategory} onChange={e => setBulkCategory(e.target.value)}
-                    className="w-full px-3.5 py-2.5 text-[13px] border border-black/[0.08] dark:border-white/[0.08] rounded-lg bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-gray-100 outline-none focus:border-[#F4821F]">
+                  <label className="block text-[11px] font-bold uppercase tracking-[1px] mb-2"
+                    style={{ color: 'var(--text-muted)' }}>Kategori (boş = tüm ürünler)</label>
+                  <select value={bulkKat} onChange={e => setBulkKat(e.target.value)}
+                    className="w-full px-3.5 py-2.5 text-[13px] rounded-lg outline-none"
+                    style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}>
                     <option value="">Tüm ürünler</option>
-                    <option value="buyuk-format">Büyük format</option>
-                    <option value="kartvizit">Kartvizit</option>
-                    <option value="sticker">Sticker</option>
-                    <option value="tabela">Tabela</option>
-                    <option value="promosyon">Promosyon</option>
+                    {KATEGORILER.map(k => <option key={k.slug} value={k.slug}>{k.icon} {k.label}</option>)}
                   </select>
                 </div>
 
                 <div>
-                  <label className="block text-[12px] font-medium text-gray-700 dark:text-gray-300 mb-1.5">İşlem türü</label>
+                  <label className="block text-[11px] font-bold uppercase tracking-[1px] mb-2"
+                    style={{ color: 'var(--text-muted)' }}>İşlem türü</label>
                   <div className="grid grid-cols-2 gap-2">
                     {[
-                      { val: 'PERCENT_INCREASE', label: '% Zam' },
-                      { val: 'PERCENT_DECREASE', label: '% İndirim' },
-                      { val: 'FIXED_INCREASE', label: '₺ Artış' },
-                      { val: 'FIXED_PRICE', label: 'Sabit fiyat' },
+                      { val: 'PERCENT_INCREASE', label: '% Zam uygula' },
+                      { val: 'PERCENT_DECREASE', label: '% İndirim uygula' },
+                      { val: 'FIXED_INCREASE',   label: '₺ Artış ekle' },
+                      { val: 'FIXED_PRICE',      label: 'Sabit fiyat yap' },
                     ].map(o => (
-                      <button key={o.val} onClick={() => setBulkType(o.val)}
-                        className={`text-[12px] py-2 rounded-lg border transition-colors ${bulkType === o.val ? 'bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 border-transparent' : 'border-black/[0.08] dark:border-white/[0.08] text-gray-500'}`}>
+                      <button key={o.val} type="button" onClick={() => setBulkType(o.val)}
+                        className="text-[12px] py-2.5 rounded-lg border transition-colors font-medium"
+                        style={{
+                          background: bulkType === o.val ? 'var(--text-primary)' : 'var(--bg-secondary)',
+                          color: bulkType === o.val ? 'var(--bg-primary)' : 'var(--text-secondary)',
+                          borderColor: 'var(--border)',
+                        }}>
                         {o.label}
                       </button>
                     ))}
@@ -242,37 +727,41 @@ function UrunlerContent() {
                 </div>
 
                 <div>
-                  <label className="block text-[12px] font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                  <label className="block text-[11px] font-bold uppercase tracking-[1px] mb-2"
+                    style={{ color: 'var(--text-muted)' }}>
                     Değer {bulkType.includes('PERCENT') ? '(%)' : '(₺)'}
                   </label>
-                  <input type="number" value={bulkValue} min="0"
-                    onChange={e => setBulkValue(Number(e.target.value))}
-                    className="w-full px-3.5 py-2.5 text-[13px] border border-black/[0.08] dark:border-white/[0.08] rounded-lg bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-gray-100 outline-none focus:border-[#F4821F]" />
+                  <input type="number" min="0" value={bulkValue}
+                    onChange={e => setBulkValue(+e.target.value)}
+                    className="w-full px-3.5 py-2.5 text-[13px] rounded-lg outline-none"
+                    style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', color: 'var(--text-primary)' }} />
                 </div>
 
-                <div className="bg-amber-50 dark:bg-amber-500/10 rounded-lg p-3">
-                  <p className="text-[12px] text-amber-700 dark:text-amber-400">
-                    {bulkType === 'PERCENT_INCREASE' && `Tüm ${bulkCategory || 'ürün'} fiyatları %${bulkValue} artırılacak`}
-                    {bulkType === 'PERCENT_DECREASE' && `Tüm ${bulkCategory || 'ürün'} fiyatları %${bulkValue} düşürülecek`}
-                    {bulkType === 'FIXED_INCREASE' && `Tüm ${bulkCategory || 'ürün'} fiyatlarına ₺${bulkValue} eklenecek`}
-                    {bulkType === 'FIXED_PRICE' && `Tüm ${bulkCategory || 'ürün'} fiyatları ₺${bulkValue} olarak ayarlanacak`}
-                  </p>
+                <div className="p-3 rounded-xl text-[12px]"
+                  style={{ background: 'rgba(244,130,31,0.06)', border: '1px solid rgba(244,130,31,0.2)', color: '#F4821F' }}>
+                  {bulkType === 'PERCENT_INCREASE' && `${bulkKat ? KATEGORILER.find(k=>k.slug===bulkKat)?.label+' ürünleri' : 'Tüm ürünler'} %${bulkValue} zamlanacak`}
+                  {bulkType === 'PERCENT_DECREASE' && `${bulkKat ? KATEGORILER.find(k=>k.slug===bulkKat)?.label+' ürünleri' : 'Tüm ürünler'} %${bulkValue} indirilecek`}
+                  {bulkType === 'FIXED_INCREASE'   && `${bulkKat ? KATEGORILER.find(k=>k.slug===bulkKat)?.label+' ürünleri' : 'Tüm ürünler'} fiyatlarına ₺${bulkValue} eklenecek`}
+                  {bulkType === 'FIXED_PRICE'      && `${bulkKat ? KATEGORILER.find(k=>k.slug===bulkKat)?.label+' ürünleri' : 'Tüm ürünler'} fiyatı ₺${bulkValue} yapılacak`}
                 </div>
 
-                <button onClick={handleBulkPrice} disabled={bulkLoading}
-                  className="w-full bg-[#F4821F] text-white text-[13px] font-medium py-3 rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center justify-center gap-2">
-                  <TrendingUp size={14} />
-                  {bulkLoading ? 'Güncelleniyor...' : 'Fiyatları güncelle'}
+                <button onClick={handleBulk} disabled={bulkLoading}
+                  className="w-full flex items-center justify-center gap-2 py-3 rounded-xl text-[13px] font-bold text-white transition-colors disabled:opacity-50"
+                  style={{ background: '#F4821F' }}>
+                  {bulkLoading
+                    ? <><Loader2 size={14} className="animate-spin" /> Güncelleniyor...</>
+                    : <><TrendingUp size={14} /> Fiyatları Güncelle</>}
                 </button>
               </div>
             </div>
           )}
+
         </div>
       </main>
     </AdminGuard>
   )
 }
 
-export default function UrunlerPage() {
+export default function AdminUrunlerPage() {
   return <Suspense><UrunlerContent /></Suspense>
 }

@@ -1,12 +1,14 @@
 import Navbar from '@/components/layout/Navbar'
 import Footer from '@/components/layout/Footer'
 import HeroSection from '@/components/sections/HeroSection'
-import StatsSection from '@/components/sections/StatsSection'
+import BannerSlider from '@/components/sections/BannerSlider'
+import OncCikanUrunler from '@/components/sections/OncCikanUrunler'
+import Sektorler from '@/components/sections/Sektorler'
 import ProductsSection from '@/components/sections/ProductsSection'
+import HesaplamaSection from '@/components/sections/HesaplamaSection'
 import ReferencesSection from '@/components/sections/ReferencesSection'
 import ReviewsSection from '@/components/sections/ReviewsSection'
 import CtaSection from '@/components/sections/CtaSection'
-import HesaplamaSection from '@/components/sections/HesaplamaSection'
 
 export default function Home() {
   return (
@@ -14,7 +16,10 @@ export default function Home() {
       <Navbar />
       <main>
         <HeroSection />
-        <StatsSection />
+        <OncCikanUrunler />
+        <Sektorler />
+                <BannerSlider />
+
         <ProductsSection />
         <HesaplamaSection />
         <ReferencesSection />

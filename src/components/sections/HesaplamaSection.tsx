@@ -1,40 +1,42 @@
 'use client'
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import api from '@/lib/api'
-import { Calculator, ChevronDown } from 'lucide-react'
+import { Calculator, ChevronDown, ArrowRight } from 'lucide-react'
 
 const BASKI_TIPLERI = [
-  { label: '280 GR VİNİL BASKI',        fiyat: 3.2  },
-  { label: '440 GR VİNİL BASKI',        fiyat: 3.8  },
-  { label: 'FOLYO',                      fiyat: 4.5  },
-  { label: 'ONE WAY VİSİON',            fiyat: 6.0  },
-  { label: '440 GR AVRUPA VİNİL BASKI', fiyat: 5.2  },
-  { label: 'IŞIKLI AVRUPA VİNİL',       fiyat: 7.5  },
-  { label: 'IŞIKLI ÇİN VİNİL',         fiyat: 6.8  },
-  { label: 'ARKASI SİYAH AVRUPA VİNİL', fiyat: 5.8  },
-  { label: 'MESH VİNİL',                fiyat: 4.2  },
-  { label: 'MAT FOLYO',                 fiyat: 4.8  },
-  { label: 'ARKASI GRİ FOLYO',         fiyat: 5.0  },
-  { label: 'KUMLU FOLYO',              fiyat: 5.5  },
-  { label: 'CANVAS',                    fiyat: 5.5  },
-  { label: 'RAKET',                     fiyat: 8.0  },
-  { label: 'BİLBOARD',                 fiyat: 3.5  },
-  { label: 'BAS-KES',                  fiyat: 9.0  },
-  { label: 'LAMİNASYON',              fiyat: 2.5  },
-  { label: 'ŞEFFAF FOLYO',            fiyat: 5.2  },
-  { label: 'LAMİNASYON ve FOLYO',     fiyat: 6.5  },
+  { label: '280 GR VİNİL BASKI',        slug: 'buyuk-format-vinil', fiyat: 3.2  },
+  { label: '440 GR VİNİL BASKI',        slug: 'buyuk-format-vinil', fiyat: 3.8  },
+  { label: 'FOLYO',                      slug: 'sticker-genel',      fiyat: 4.5  },
+  { label: 'ONE WAY VİSİON',            slug: 'sticker-genel',      fiyat: 6.0  },
+  { label: '440 GR AVRUPA VİNİL BASKI', slug: 'buyuk-format-vinil', fiyat: 5.2  },
+  { label: 'IŞIKLI AVRUPA VİNİL',       slug: 'buyuk-format-vinil', fiyat: 7.5  },
+  { label: 'IŞIKLI ÇİN VİNİL',         slug: 'buyuk-format-vinil', fiyat: 6.8  },
+  { label: 'ARKASI SİYAH VİNİL',        slug: 'buyuk-format-vinil', fiyat: 5.8  },
+  { label: 'MESH VİNİL',                slug: 'buyuk-format-vinil', fiyat: 4.2  },
+  { label: 'MAT FOLYO',                 slug: 'sticker-genel',      fiyat: 4.8  },
+  { label: 'ARKASI GRİ FOLYO',         slug: 'sticker-genel',      fiyat: 5.0  },
+  { label: 'KUMLU FOLYO',              slug: 'sticker-genel',      fiyat: 5.5  },
+  { label: 'CANVAS',                    slug: 'buyuk-format-vinil', fiyat: 5.5  },
+  { label: 'RAKET',                     slug: 'tabela-forex',       fiyat: 8.0  },
+  { label: 'BİLBOARD',                 slug: 'buyuk-format-branda', fiyat: 3.5  },
+  { label: 'BAS-KES',                  slug: 'sticker-genel',      fiyat: 9.0  },
+  { label: 'LAMİNASYON',              slug: 'buyuk-format-vinil', fiyat: 2.5  },
+  { label: 'ŞEFFAF FOLYO',            slug: 'sticker-genel',      fiyat: 5.2  },
+  { label: 'LAMİNASYON ve FOLYO',     slug: 'buyuk-format-vinil', fiyat: 6.5  },
 ]
 
 const EK_SECENEKLER = {
-  kopca:        { label: 'KOPÇA (4 TARAF)', options: ['YOK', 'VAR (+15₺/m²)'],         fiyat: [0, 15] },
-  sopalik:      { label: 'SOPALIK DİKİŞ',  options: ['YOK', 'ÜST', 'ALT', 'İKİSİ'],   fiyat: [0, 8, 8, 14] },
-  kolonDikis:   { label: 'KOLON DİKİŞ',   options: ['YOK', 'VAR (+8₺/m²)'],           fiyat: [0, 8] },
-  kaynak:       { label: 'KAYNAK',         options: ['YOK', 'VAR (+5₺/m²)'],           fiyat: [0, 5] },
+  kopca:      { label: 'KOPÇA (4 TARAF)', options: ['YOK', 'VAR (+15₺/m²)'],       fiyat: [0, 15] },
+  sopalik:    { label: 'SOPALIK DİKİŞ',  options: ['YOK', 'ÜST', 'ALT', 'İKİSİ'], fiyat: [0, 8, 8, 14] },
+  kolonDikis: { label: 'KOLON DİKİŞ',   options: ['YOK', 'VAR (+8₺/m²)'],         fiyat: [0, 8] },
+  kaynak:     { label: 'KAYNAK',         options: ['YOK', 'VAR (+5₺/m²)'],         fiyat: [0, 5] },
 }
 
 export default function HesaplamaSection() {
+  const router = useRouter()
   const [kur, setKur] = useState(45)
-  const [basKiTipi, setBaskiTipi] = useState(0)
+  const [baskiTipi, setBaskiTipi] = useState(0)
   const [yukseklik, setYukseklik] = useState('')
   const [genislik, setGenislik] = useState('')
   const [adet, setAdet] = useState('1')
@@ -56,27 +58,32 @@ export default function HesaplamaSection() {
     if (!h || !w) return
 
     const m2 = h * w * a
-    const birimFiyatUSD = BASKI_TIPLERI[basKiTipi].fiyat
-
-    // Ek seçenek fiyatları (TL/m²)
+    const birimFiyatUSD = BASKI_TIPLERI[baskiTipi].fiyat
     const ekTL = (
       EK_SECENEKLER.kopca.fiyat[secenekler.kopca] +
       EK_SECENEKLER.sopalik.fiyat[secenekler.sopalik] +
       EK_SECENEKLER.kolonDikis.fiyat[secenekler.kolonDikis] +
       EK_SECENEKLER.kaynak.fiyat[secenekler.kaynak]
     ) * m2
-
     const usd = birimFiyatUSD * m2
     const tl = (usd * kur) + ekTL + ek
-
     setSonuc({ m2: Math.round(m2 * 100) / 100, usd: Math.round(usd * 100) / 100, tl: Math.round(tl) })
+  }
+
+  const siparisVer = () => {
+    const seciliUrun = BASKI_TIPLERI[baskiTipi]
+    const params = new URLSearchParams()
+    params.set('urun', seciliUrun.slug)
+    if (yukseklik) params.set('boy', String(Math.round(parseFloat(yukseklik) * 100)))
+    if (genislik)  params.set('en',  String(Math.round(parseFloat(genislik)  * 100)))
+    if (adet)      params.set('adet', adet)
+    router.push(`/siparis?${params.toString()}`)
   }
 
   return (
     <section className="py-20" style={{ background: 'var(--bg-secondary)' }}>
       <div className="max-w-7xl mx-auto px-6">
 
-        {/* Başlık */}
         <div className="flex items-end justify-between mb-10">
           <div>
             <p className="text-[11px] tracking-[2.5px] uppercase font-bold text-[#F4821F] mb-3">Fiyat Hesaplama</p>
@@ -98,13 +105,13 @@ export default function HesaplamaSection() {
 
         <div className="rounded-2xl p-8" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
 
-          {/* Satır 1 — Baskı tipi */}
+          {/* Baskı tipi */}
           <div className="grid grid-cols-2 gap-6 mb-6">
             <div>
               <label className="block text-[11px] font-bold uppercase tracking-[1px] mb-2"
                 style={{ color: 'var(--text-muted)' }}>Baskı Tipi</label>
               <div className="relative">
-                <select value={basKiTipi} onChange={e => setBaskiTipi(+e.target.value)}
+                <select value={baskiTipi} onChange={e => { setBaskiTipi(+e.target.value); setSonuc(null) }}
                   className="w-full px-4 py-3 rounded-xl text-[13px] font-semibold outline-none appearance-none cursor-pointer"
                   style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}>
                   {BASKI_TIPLERI.map((b, i) => (
@@ -122,13 +129,13 @@ export default function HesaplamaSection() {
                   Birim Fiyat
                 </span>
                 <p className="text-[16px] font-bold text-[#F4821F] mt-0.5">
-                  ${BASKI_TIPLERI[basKiTipi].fiyat.toFixed(2)} / m²
+                  ${BASKI_TIPLERI[baskiTipi].fiyat.toFixed(2)} / m²
                 </p>
               </div>
             </div>
           </div>
 
-          {/* Satır 2 — Ölçüler */}
+          {/* Ölçüler */}
           <div className="grid grid-cols-5 gap-4 mb-6">
             {[
               { label: 'Yükseklik (m)', val: yukseklik, set: setYukseklik, placeholder: '2.00' },
@@ -139,14 +146,12 @@ export default function HesaplamaSection() {
               <div key={f.label}>
                 <label className="block text-[11px] font-bold uppercase tracking-[1px] mb-2"
                   style={{ color: 'var(--text-muted)' }}>{f.label}</label>
-                <input type="number" value={f.val} onChange={e => f.set(e.target.value)}
+                <input type="number" value={f.val} onChange={e => { f.set(e.target.value); setSonuc(null) }}
                   placeholder={f.placeholder} min="0" step="0.01"
                   className="w-full px-4 py-3 rounded-xl text-[13px] outline-none"
                   style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', color: 'var(--text-primary)' }} />
               </div>
             ))}
-
-            {/* Toplam m² */}
             <div>
               <label className="block text-[11px] font-bold uppercase tracking-[1px] mb-2"
                 style={{ color: 'var(--text-muted)' }}>Toplam (m²)</label>
@@ -157,7 +162,7 @@ export default function HesaplamaSection() {
             </div>
           </div>
 
-          {/* Satır 3 — Ek seçenekler */}
+          {/* Ek seçenekler */}
           <div className="grid grid-cols-4 gap-4 mb-8">
             {Object.entries(EK_SECENEKLER).map(([key, opt]) => (
               <div key={key}>
@@ -166,7 +171,7 @@ export default function HesaplamaSection() {
                 <div className="relative">
                   <select
                     value={secenekler[key as keyof typeof secenekler]}
-                    onChange={e => setSecenekler(s => ({ ...s, [key]: +e.target.value }))}
+                    onChange={e => { setSecenekler(s => ({ ...s, [key]: +e.target.value })); setSonuc(null) }}
                     className="w-full px-4 py-3 rounded-xl text-[13px] outline-none appearance-none cursor-pointer"
                     style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}>
                     {opt.options.map((o, i) => <option key={i} value={i}>{o}</option>)}
@@ -179,7 +184,7 @@ export default function HesaplamaSection() {
           </div>
 
           {/* Hesapla + Sonuç */}
-          <div className="flex items-center gap-6">
+          <div className="flex items-center gap-6 flex-wrap">
             <button onClick={hesapla}
               className="flex items-center gap-2 bg-[#F4821F] text-white text-[14px] font-bold px-10 py-4 rounded-xl hover:bg-[#e07010] transition-colors shadow-sm">
               <Calculator size={16} />
@@ -210,6 +215,28 @@ export default function HesaplamaSection() {
               </div>
             )}
           </div>
+
+          {/* Sipariş ver butonu — sonuç hesaplandıktan sonra çıkar */}
+          {sonuc && (
+            <div className="mt-5 flex items-center gap-4 pt-5 border-t"
+              style={{ borderColor: 'var(--border)' }}>
+              <div className="flex-1">
+                <p className="text-[13px] font-medium" style={{ color: 'var(--text-primary)' }}>
+                  Bu fiyatla sipariş vermek ister misiniz?
+                </p>
+                <p className="text-[12px] mt-0.5" style={{ color: 'var(--text-muted)' }}>
+                  Seçtiğiniz ürün ve ölçüler otomatik aktarılır.
+                </p>
+              </div>
+              <button
+                onClick={siparisVer}
+                className="flex items-center gap-2 bg-gray-900 dark:bg-white text-white dark:text-gray-900 text-[13px] font-bold px-6 py-3 rounded-xl hover:opacity-90 transition-opacity"
+              >
+                Sipariş ver
+                <ArrowRight size={14} />
+              </button>
+            </div>
+          )}
 
           <p className="text-[11px] mt-4" style={{ color: 'var(--text-muted)' }}>
             * Fiyatlar KDV hariçtir. Kesin fiyat teklifi için sipariş oluşturun.

@@ -2,19 +2,20 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useRouter } from 'next/navigation'
-import { Printer, Package, ShoppingBag, LogOut, LayoutDashboard, Shield, Users, Star, Moon, Sun, Settings } from 'lucide-react'
+import { Printer, Package, ShoppingBag, LogOut, LayoutDashboard, Shield, Users, Star, Moon, Sun, Settings, ExternalLink } from 'lucide-react'
 import { useTheme } from './ThemeProvider'
 import { useState, useEffect, useRef } from 'react'
 import axios from 'axios'
 
 const allLinks = [
-  { href: '/admin',             label: 'Dashboard',  icon: LayoutDashboard, perm: null,               adminOnly: false },
-  { href: '/admin/urunler',     label: 'Ürünler',    icon: Package,         perm: 'urun.goruntule',   adminOnly: false },
-  { href: '/admin/siparisler',  label: 'Siparişler', icon: ShoppingBag,     perm: 'siparis.goruntule',adminOnly: false },
-  { href: '/admin/referanslar', label: 'Referanslar',icon: Star,            perm: 'referans.yonet',   adminOnly: false },
-  { href: '/admin/roller',      label: 'Roller',     icon: Shield,          perm: null,               adminOnly: true  },
-  { href: '/admin/ayarlar',     label: 'Ayarlar',    icon: Settings,        perm: null,               adminOnly: true  },
-  { href: '/admin/kullanicilar',label: 'Kullanıcılar',icon: Users,          perm: null,               adminOnly: true  },
+  { href: '/admin',              label: 'Dashboard',   icon: LayoutDashboard, perm: null,                adminOnly: false },
+  { href: '/admin/urunler',      label: 'Ürünler',     icon: Package,         perm: 'urun.goruntule',    adminOnly: false },
+  { href: '/admin/siparisler',   label: 'Siparişler',  icon: ShoppingBag,     perm: 'siparis.goruntule', adminOnly: false },
+  { href: '/admin/referanslar',  label: 'Referanslar', icon: Star,            perm: 'referans.yonet',    adminOnly: false },
+  { href: '/admin/roller',       label: 'Roller',      icon: Shield,          perm: null,                adminOnly: true  },
+  { href: '/admin/ayarlar',      label: 'Ayarlar',     icon: Settings,        perm: null,                adminOnly: true  },
+  { href: '/admin/kullanicilar', label: 'Kullanıcılar',icon: Users,           perm: null,                adminOnly: true  },
+  { href: '/admin/bayiler',      label: 'Bayiler',     icon: Users,           perm: null,                adminOnly: false },
 ]
 
 export default function AdminNavbar() {
@@ -39,16 +40,13 @@ export default function AdminNavbar() {
 
       setName(state?.user?.name || '')
 
-      // ADMIN her şeyi görür
       if (userRole === 'ADMIN') {
         setVisibleLinks(allLinks)
         return
       }
 
-      // OPERATOR — perm gerektirmeyen linkleri hemen göster
       setVisibleLinks(allLinks.filter(l => !l.adminOnly && !l.perm))
 
-      // Sonra izinleri çek ve perm gerektirenleri ekle
       if (userId && token) {
         axios.get(
           `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/admin/roles/users/${userId}/permissions`,
@@ -56,9 +54,9 @@ export default function AdminNavbar() {
         ).then(res => {
           const perms = new Set<string>(res.data.data || [])
           setVisibleLinks(allLinks.filter(l => {
-            if (l.adminOnly) return false        // admin-only: gizli
-            if (!l.perm)     return true         // perm yok: her zaman görünür
-            return perms.has(l.perm)             // perm var: izin kontrolü
+            if (l.adminOnly) return false
+            if (!l.perm)     return true
+            return perms.has(l.perm)
           }))
         }).catch(() => {})
       }
@@ -104,12 +102,24 @@ export default function AdminNavbar() {
         </div>
 
         <div className="flex items-center gap-2">
+          {/* Siteye dön linki */}
+          <Link
+            href="/urunler"
+            className="flex items-center gap-1.5 text-[11px] px-2.5 py-1.5 rounded-lg transition-colors"
+            style={{ color: 'var(--text-muted)', border: '1px solid var(--border)' }}
+          >
+            <ExternalLink size={11} />
+            Siteye dön
+          </Link>
+
           <span className="text-[11px]" style={{ color: 'var(--text-muted)' }}>{name}</span>
+
           <button onClick={toggle}
             className="w-8 h-8 rounded-lg flex items-center justify-center transition-colors"
             style={{ border: '1px solid var(--border)', color: 'var(--text-muted)', background: 'var(--surface)' }}>
             {theme === 'dark' ? <Sun size={13} className="text-[#F4821F]" /> : <Moon size={13} />}
           </button>
+
           <button onClick={handleLogout}
             className="flex items-center gap-1.5 text-[12px] px-2 py-1.5 rounded-lg transition-colors hover:text-red-500"
             style={{ color: 'var(--text-muted)' }}>

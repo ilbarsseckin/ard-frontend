@@ -2,32 +2,32 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ── Renk değişkenleri ── */
+/* ── Renk değişkenleri — Kurumsal ── */
 :root {
   --orange: #F4821F;
-  --bg-primary: #F7F5F0;
-  --bg-secondary: #EDEAE3;
-  --bg-card: #FFFFFF;
-  --bg-card-hover: #FAFAF8;
-  --text-primary: #1A1814;
-  --text-secondary: #6B6660;
-  --text-muted: #A09A94;
-  --border: rgba(26,24,20,0.08);
-  --border-strong: rgba(26,24,20,0.14);
-  --surface: rgba(26,24,20,0.04);
+  --bg-primary:    #FFFFFF;
+  --bg-secondary:  #F4F5F7;
+  --bg-card:       #FFFFFF;
+  --bg-card-hover: #F8F9FA;
+  --text-primary:  #111827;
+  --text-secondary:#4B5563;
+  --text-muted:    #9CA3AF;
+  --border:        rgba(17,24,39,0.08);
+  --border-strong: rgba(17,24,39,0.15);
+  --surface:       rgba(17,24,39,0.04);
 }
 
 .dark {
-  --bg-primary: #141210;
-  --bg-secondary: #1C1916;
-  --bg-card: #201D1A;
-  --bg-card-hover: #252220;
-  --text-primary: #F0ECE6;
-  --text-secondary: #9C9590;
-  --text-muted: #5C5854;
-  --border: rgba(240,236,230,0.07);
-  --border-strong: rgba(240,236,230,0.12);
-  --surface: rgba(240,236,230,0.04);
+  --bg-primary:    #0F1117;
+  --bg-secondary:  #161B26;
+  --bg-card:       #1C2333;
+  --bg-card-hover: #1F2840;
+  --text-primary:  #F9FAFB;
+  --text-secondary:#9CA3AF;
+  --text-muted:    #6B7280;
+  --border:        rgba(249,250,251,0.08);
+  --border-strong: rgba(249,250,251,0.14);
+  --surface:       rgba(249,250,251,0.04);
 }
 
 * { box-sizing: border-box; }
@@ -36,9 +36,9 @@ html { scroll-behavior: smooth; }
 body {
   background-color: var(--bg-primary);
   color: var(--text-primary);
-  font-family: 'Georgia', 'Times New Roman', serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   -webkit-font-smoothing: antialiased;
-  transition: background-color 0.4s ease, color 0.4s ease;
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
 
 /* ── Ticker ── */
@@ -54,27 +54,28 @@ body {
 
 /* ── Animasyonlar ── */
 .animate-in {
-  animation: fadeUp 0.8s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  animation: fadeUp 0.7s cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
 @keyframes fadeUp {
-  from { opacity: 0; transform: translateY(28px); }
+  from { opacity: 0; transform: translateY(24px); }
   to   { opacity: 1; transform: translateY(0); }
 }
 
 .animate-in-right {
-  animation: fadeRight 0.9s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  animation: fadeRight 0.8s cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
 @keyframes fadeRight {
-  from { opacity: 0; transform: translateX(24px); }
+  from { opacity: 0; transform: translateX(20px); }
   to   { opacity: 1; transform: translateX(0); }
 }
 
 /* ── Kart hover ── */
 .card-hover {
-  transition: border-color 0.25s ease, transform 0.2s ease, box-shadow 0.25s ease;
+  transition: border-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
 }
 .card-hover:hover {
   transform: translateY(-2px);
+  box-shadow: 0 4px 20px rgba(0,0,0,0.08);
 }
 
 /* ── Progress bar ── */
@@ -90,5 +91,5 @@ body {
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 3px; }
 
-/* ── Sanatsal metin seçim rengi ── */
-::selection { background: rgba(244,130,31,0.2); color: var(--text-primary); }
+/* ── Seçim rengi ── */
+::selection { background: rgba(244,130,31,0.18); color: var(--text-primary); }

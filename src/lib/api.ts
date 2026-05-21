@@ -5,12 +5,34 @@ const api = axios.create({
   headers: { 'Content-Type': 'application/json' },
 })
 
+// Bu endpoint'lerde 401 alınca redirect yapma
+const PUBLIC_ENDPOINTS = [
+  '/api/products',
+  '/api/references',
+  '/api/settings',
+  '/api/health',
+  '/api/webhook',
+]
+
+// Admin sayfalarında 401/403 alınca redirect yapma
+const ADMIN_ENDPOINTS = ['/api/admin', '/api/operator']
+
+function isPublicEndpoint(url: string) {
+  return PUBLIC_ENDPOINTS.some(e => url.includes(e))
+}
+
+function isAdminEndpoint(url: string) {
+  return ADMIN_ENDPOINTS.some(e => url.includes(e))
+}
+
 api.interceptors.request.use((config) => {
   if (typeof window !== 'undefined') {
     const stored = localStorage.getItem('baski-auth')
     if (stored) {
-      const { state } = JSON.parse(stored)
-      if (state?.token) config.headers.Authorization = `Bearer ${state.token}`
+      try {
+        const { state } = JSON.parse(stored)
+        if (state?.token) config.headers.Authorization = `Bearer ${state.token}`
+      } catch {}
     }
   }
   return config
@@ -19,9 +41,26 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (res) => res,
   (err) => {
-    if (err.response?.status === 401 && typeof window !== 'undefined') {
-      localStorage.removeItem('baski-auth')
-      window.location.href = '/giris'
+    if (typeof window !== 'undefined') {
+      const url = err.config?.url || ''
+      const status = err.response?.status
+
+      // Public veya admin endpoint'lerde → redirect yok
+      if (isPublicEndpoint(url) || isAdminEndpoint(url) || url.includes('/api/auth/')) {
+        return Promise.reject(err)
+      }
+
+      // Sadece 401 ve token yoksa → girişe yönlendir
+      if (status === 401) {
+        const stored = localStorage.getItem('baski-auth')
+        if (!stored) {
+          const currentPath = window.location.pathname + window.location.search
+          const redirectTo = currentPath !== '/giris'
+            ? `?redirect=${encodeURIComponent(currentPath)}`
+            : ''
+          window.location.href = `/giris${redirectTo}`
+        }
+      }
     }
     return Promise.reject(err)
   }
@@ -34,6 +73,8 @@ export const authApi = {
     api.post('/api/auth/login', { email, password }),
   register: (data: { name: string; email: string; password: string; phone?: string }) =>
     api.post('/api/auth/register', data),
+  googleCallback: (code: string) =>
+    api.post('/api/auth/google', { code }),
 }
 
 export const productApi = {
@@ -92,20 +133,3 @@ export const userApi = {
   updateProfile: (data: { name: string; phone?: string }) =>
     api.put('/api/user/profile', data),
 }
-
-api.interceptors.response.use(
-  (res) => res,
-  (err) => {
-    if ((err.response?.status === 401 || err.response?.status === 400) && typeof window !== 'undefined') {
-      // Sadece auth endpoint'leri değilse
-      const url = err.config?.url || ''
-      if (!url.includes('/api/auth/')) {
-        const stored = localStorage.getItem('baski-auth')
-        if (!stored) {
-          window.location.href = '/giris'
-        }
-      }
-    }
-    return Promise.reject(err)
-  }
-)

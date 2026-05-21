@@ -9,7 +9,7 @@ import { Plus, Pencil, Trash2, ToggleLeft, ToggleRight, Upload, X, Star, StarOff
 const CATEGORIES = ['Zincir Market', 'İçecek & FMCG', 'Restoran', 'Otel & Turizm', 'Etkinlik & Fuar', 'Diğer']
 const COLORS = ['#E31E24','#003087','#E8000D','#F40009','#D62300','#006491','#F26522','#012169','#8A1538','#1B4F72','#F4821F','#1D9E75','#534AB7']
 
-const emptyForm = { name: '', sector: '', category: CATEGORIES[0], description: '', color: '#F4821F', abbr: '', featured: false, active: true, displayOrder: 0 }
+const emptyForm = { name: '', sector: '', category: CATEGORIES[0], description: '', color: '#F4821F', abbr: '', featured: false, active: true, displayOrder: 0, logoUrl: '' }
 
 // Dosya adından marka adı çıkar: "migros-logo.png" → "Migros"
 const nameFromFile = (filename: string) =>
@@ -55,7 +55,7 @@ export default function ReferanslarPage() {
       name: ref.name, sector: ref.sector, category: ref.category,
       description: ref.description || '', color: ref.color || '#F4821F',
       abbr: ref.abbr || '', featured: ref.featured, active: ref.active,
-      displayOrder: ref.displayOrder || 0,
+      displayOrder: ref.displayOrder || 0, logoUrl: ref.logoUrl || '',
     })
     setLogoFile(null)
     setLogoPreview(ref.logoBase64 || ref.logoUrl || '')
@@ -131,6 +131,7 @@ export default function ReferanslarPage() {
       fd.append('active', String(form.active))
       fd.append('displayOrder', String(form.displayOrder ?? 0))
       if (logoFile) fd.append('logo', logoFile)
+      if (form.logoUrl) fd.append('logoUrl', form.logoUrl)
 
       if (editing) {
         await api.put(`/api/references/${editing.id}`, fd, { headers: { 'Content-Type': undefined } })
@@ -299,6 +300,18 @@ export default function ReferanslarPage() {
                 </button>
               </div>
               <input ref={logoRef} type="file" accept="image/*" className="hidden" onChange={handleLogoChange} />
+              <div className="mt-2">
+                <label className="block text-[11px] font-bold uppercase tracking-[1px] mb-1.5" style={{ color: 'var(--text-muted)' }}>
+                  veya Logo URL girin
+                </label>
+                <input value={form.logoUrl || ''} onChange={e => { setForm({ ...form, logoUrl: e.target.value }); if(e.target.value) setLogoPreview(e.target.value) }}
+                  placeholder="https://logo.clearbit.com/migros.com.tr"
+                  className="w-full px-3 py-2.5 rounded-lg text-[12px] outline-none"
+                  style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', color: 'var(--text-primary)' }} />
+                <p className="text-[10px] mt-1" style={{ color: 'var(--text-muted)' }}>
+                  Clearbit: https://logo.clearbit.com/domain.com · veya herhangi bir resim URL'i
+                </p>
+              </div>
             </div>
 
             <div className="space-y-4">

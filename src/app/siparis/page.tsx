@@ -11,8 +11,10 @@ import { Check, Upload, Calculator } from 'lucide-react'
 const steps = ['Ürün & boyut', 'Tasarım yükle', 'Özet']
 
 type Form = {
-  productSlug: string; widthCm?: number; heightCm?: number
-  quantity: number; declaredPrints: number
+  productSlug: string
+  widthCm?: number
+  heightCm?: number
+  quantity: number
 }
 
 function SiparisContent() {
@@ -27,8 +29,17 @@ function SiparisContent() {
   const [uploadLoading, setUploadLoading] = useState(false)
   const addItem = useCartStore(s => s.addItem)
 
-  const { register, watch, handleSubmit, setValue, formState: { errors } } = useForm<Form>({
-    defaultValues: { quantity: 1, declaredPrints: 1, productSlug: params.get('urun') || '' }
+  const enParam   = params.get('en')   ? Number(params.get('en'))   : undefined
+  const boyParam  = params.get('boy')  ? Number(params.get('boy'))  : undefined
+  const adetParam = params.get('adet') ? Number(params.get('adet')) : 1
+
+  const { register, watch, handleSubmit, formState: { errors } } = useForm<Form>({
+    defaultValues: {
+      quantity: adetParam,
+      productSlug: params.get('urun') || '',
+      widthCm: enParam,
+      heightCm: boyParam,
+    }
   })
 
   const slug = watch('productSlug')
@@ -63,12 +74,27 @@ function SiparisContent() {
         widthCm: data.widthCm ? Number(data.widthCm) : undefined,
         heightCm: data.heightCm ? Number(data.heightCm) : undefined,
         quantity: Number(data.quantity),
-        declaredPrints: Number(data.declaredPrints),
+        declaredPrints: 1,
       })
       const cartData = res.data.data
       const lastItem = cartData.items[cartData.items.length - 1]
-      setCartItemId(lastItem.id)
-      addItem({ ...lastItem, productSlug: data.productSlug, productName: selectedProduct?.name || '' })
+      setCartItemId(String(lastItem.id))
+      addItem({
+        id: String(lastItem.id),
+        productSlug: data.productSlug,
+        productName: selectedProduct?.name || '',
+        widthCm: lastItem.widthCm,
+        heightCm: lastItem.heightCm,
+        quantity: lastItem.quantity,
+        unitPrice: Number(lastItem.unitPrice),
+        totalPrice: Number(lastItem.totalPrice),
+        priceBreakdown: lastItem.priceBreakdown || '',
+        fileOriginalName: lastItem.fileOriginalName,
+        filePagesCount: lastItem.filePagesCount,
+        declaredPrints: lastItem.declaredPrints ?? 1,
+        hasFile: lastItem.hasFile,
+        pageWarning: lastItem.pageWarning,
+      })
       if (selectedProduct?.hasFile) setStep(1)
       else setStep(2)
     } catch { toast.error('Sepete eklenemedi') }
@@ -90,17 +116,27 @@ function SiparisContent() {
       <Navbar />
       <main className="min-h-screen bg-gray-50 dark:bg-[#0a0a0a]">
         <div className="max-w-2xl mx-auto px-6 py-12">
-          <h1 className="text-[24px] font-medium tracking-[-0.5px] text-gray-900 dark:text-gray-100 mb-2">Sipariş oluştur</h1>
+          <h1 className="text-[24px] font-medium tracking-[-0.5px] text-gray-900 dark:text-gray-100 mb-2">
+            Sipariş oluştur
+          </h1>
 
           {/* Adım göstergesi */}
           <div className="flex items-center gap-2 mb-8">
             {steps.map((s, i) => (
               <div key={i} className="flex items-center gap-2">
-                <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-medium transition-colors ${i < step ? 'bg-emerald-500 text-white' : i === step ? 'bg-[#F4821F] text-white' : 'bg-black/[0.08] dark:bg-white/[0.08] text-gray-400'}`}>
+                <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-medium transition-colors ${
+                  i < step ? 'bg-emerald-500 text-white' :
+                  i === step ? 'bg-[#F4821F] text-white' :
+                  'bg-black/[0.08] dark:bg-white/[0.08] text-gray-400'
+                }`}>
                   {i < step ? <Check size={12} /> : i + 1}
                 </div>
-                <span className={`text-[12px] ${i === step ? 'text-gray-900 dark:text-gray-100 font-medium' : 'text-gray-400'}`}>{s}</span>
-                {i < steps.length - 1 && <div className="w-8 h-px bg-black/[0.08] dark:bg-white/[0.08] ml-1" />}
+                <span className={`text-[12px] ${i === step ? 'text-gray-900 dark:text-gray-100 font-medium' : 'text-gray-400'}`}>
+                  {s}
+                </span>
+                {i < steps.length - 1 && (
+                  <div className="w-8 h-px bg-black/[0.08] dark:bg-white/[0.08] ml-1" />
+                )}
               </div>
             ))}
           </div>
@@ -110,104 +146,140 @@ function SiparisContent() {
             {/* ADIM 1 */}
             {step === 0 && (
               <form onSubmit={handleSubmit(handleStep1)} className="space-y-5">
+
+                {/* Ürün seç */}
                 <div>
-                  <label className="block text-[12px] font-medium text-gray-700 dark:text-gray-300 mb-2">Ürün seçin</label>
-                  <select {...register('productSlug', { required: true })}
-                    className="w-full px-3.5 py-2.5 text-[13px] border border-black/[0.08] dark:border-white/[0.08] rounded-lg bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-gray-100 outline-none focus:border-[#F4821F]">
+                  <label className="block text-[12px] font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Ürün seçin
+                  </label>
+                  <select
+                    {...register('productSlug', { required: true })}
+                    className="w-full px-3.5 py-2.5 text-[13px] border border-black/[0.08] dark:border-white/[0.08] rounded-lg bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-gray-100 outline-none focus:border-[#F4821F]"
+                  >
                     <option value="">Seçiniz...</option>
-                    {products.map(p => <option key={p.id} value={p.slug}>{p.name}</option>)}
+                    {products.map(p => (
+                      <option key={p.id} value={p.slug}>{p.name}</option>
+                    ))}
                   </select>
                 </div>
 
+                {/* Boyut — sadece m² ürünlerde */}
                 {selectedProduct?.unit === 'm2' && (
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-[12px] font-medium text-gray-700 dark:text-gray-300 mb-2">En (cm)</label>
-                      <input type="number" placeholder="100" {...register('widthCm', { required: true, min: 1 })}
-                        className="w-full px-3.5 py-2.5 text-[13px] border border-black/[0.08] dark:border-white/[0.08] rounded-lg bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-gray-100 outline-none focus:border-[#F4821F]" />
+                      <label className="block text-[12px] font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        En (cm)
+                      </label>
+                      <input
+                        type="number"
+                        placeholder="100"
+                        {...register('widthCm', { required: true, min: 1 })}
+                        className="w-full px-3.5 py-2.5 text-[13px] border border-black/[0.08] dark:border-white/[0.08] rounded-lg bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-gray-100 outline-none focus:border-[#F4821F]"
+                      />
                     </div>
                     <div>
-                      <label className="block text-[12px] font-medium text-gray-700 dark:text-gray-300 mb-2">Boy (cm)</label>
-                      <input type="number" placeholder="50" {...register('heightCm', { required: true, min: 1 })}
-                        className="w-full px-3.5 py-2.5 text-[13px] border border-black/[0.08] dark:border-white/[0.08] rounded-lg bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-gray-100 outline-none focus:border-[#F4821F]" />
+                      <label className="block text-[12px] font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Boy (cm)
+                      </label>
+                      <input
+                        type="number"
+                        placeholder="50"
+                        {...register('heightCm', { required: true, min: 1 })}
+                        className="w-full px-3.5 py-2.5 text-[13px] border border-black/[0.08] dark:border-white/[0.08] rounded-lg bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-gray-100 outline-none focus:border-[#F4821F]"
+                      />
                     </div>
                   </div>
                 )}
 
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-[12px] font-medium text-gray-700 dark:text-gray-300 mb-2">Adet</label>
-                    <input type="number" min="1" {...register('quantity', { required: true, min: 1 })}
-                      className="w-full px-3.5 py-2.5 text-[13px] border border-black/[0.08] dark:border-white/[0.08] rounded-lg bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-gray-100 outline-none focus:border-[#F4821F]" />
-                  </div>
-                  <div>
-                    <label className="block text-[12px] font-medium text-gray-700 dark:text-gray-300 mb-2">Baskı sayısı</label>
-                    <select {...register('declaredPrints')}
-                      className="w-full px-3.5 py-2.5 text-[13px] border border-black/[0.08] dark:border-white/[0.08] rounded-lg bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-gray-100 outline-none focus:border-[#F4821F]">
-                      <option value={1}>1 baskı</option>
-                      <option value={2}>2 baskı</option>
-                      <option value={3}>3 baskı</option>
-                      <option value={4}>4+ baskı</option>
-                    </select>
-                  </div>
+                {/* Adet */}
+                <div>
+                  <label className="block text-[12px] font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Adet
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    {...register('quantity', { required: true, min: 1 })}
+                    className="w-full px-3.5 py-2.5 text-[13px] border border-black/[0.08] dark:border-white/[0.08] rounded-lg bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-gray-100 outline-none focus:border-[#F4821F]"
+                  />
                 </div>
 
-                <button type="button" onClick={calcPrice} disabled={calcLoading}
-                  className="w-full flex items-center justify-center gap-2 border border-black/[0.08] dark:border-white/[0.08] text-[13px] text-gray-700 dark:text-gray-300 py-2.5 rounded-lg hover:bg-gray-50 dark:hover:bg-white/[0.04] transition-colors disabled:opacity-50">
+                {/* Fiyat hesapla */}
+                <button
+                  type="button"
+                  onClick={calcPrice}
+                  disabled={calcLoading}
+                  className="w-full flex items-center justify-center gap-2 border border-black/[0.08] dark:border-white/[0.08] text-[13px] text-gray-700 dark:text-gray-300 py-2.5 rounded-lg hover:bg-gray-50 dark:hover:bg-white/[0.04] transition-colors disabled:opacity-50"
+                >
                   <Calculator size={14} />
                   {calcLoading ? 'Hesaplanıyor...' : 'Fiyat hesapla'}
                 </button>
 
+                {/* Fiyat sonucu */}
                 {price && (
                   <div className="bg-orange-50 dark:bg-orange-500/10 border border-orange-100 dark:border-orange-500/20 rounded-xl p-4">
-                    <div className="flex justify-between items-center mb-1">
-                      <span className="text-[13px] text-gray-700 dark:text-gray-300">{price.priceBreakdown}</span>
-                    </div>
+                    <p className="text-[13px] text-gray-700 dark:text-gray-300 mb-1">
+                      {price.priceBreakdown}
+                    </p>
                     <div className="text-[22px] font-medium text-[#F4821F] tracking-[-0.4px]">
-                      ₺{price.totalPrice.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}
+                      ₺{Number(price.totalPrice).toLocaleString('tr-TR', { minimumFractionDigits: 2 })}
                     </div>
                   </div>
                 )}
 
-                <button type="submit"
-                  className="w-full bg-[#F4821F] text-white text-[14px] font-medium py-3 rounded-lg hover:opacity-90 transition-opacity">
+                <button
+                  type="submit"
+                  className="w-full bg-[#F4821F] text-white text-[14px] font-medium py-3 rounded-lg hover:opacity-90 transition-opacity"
+                >
                   Devam et →
                 </button>
               </form>
             )}
 
-            {/* ADIM 2 */}
+            {/* ADIM 2 — Tasarım yükle */}
             {step === 1 && (
               <div className="space-y-5">
                 <div>
-                  <p className="text-[14px] font-medium text-gray-900 dark:text-gray-100 mb-1.5">Tasarım dosyanızı yükleyin</p>
-                  <p className="text-[12px] text-gray-400 mb-4">PDF, AI, EPS formatları kabul edilir. Maksimum 100 MB.</p>
-
+                  <p className="text-[14px] font-medium text-gray-900 dark:text-gray-100 mb-1.5">
+                    Tasarım dosyanızı yükleyin
+                  </p>
+                  <p className="text-[12px] text-gray-400 mb-4">
+                    PDF, AI, EPS formatları kabul edilir. Maksimum 100 MB.
+                  </p>
                   <label className="block border-2 border-dashed border-black/[0.1] dark:border-white/[0.1] rounded-xl p-8 text-center cursor-pointer hover:border-[#F4821F] transition-colors">
                     <Upload size={28} className="mx-auto mb-3 text-gray-300" />
                     <p className="text-[13px] font-medium text-gray-700 dark:text-gray-300 mb-1">
                       {file ? file.name : 'Dosyayı sürükle veya tıkla'}
                     </p>
                     <p className="text-[11px] text-gray-400">PDF · AI · EPS · Maks 100MB</p>
-                    <input type="file" accept=".pdf,.ai,.eps" className="hidden"
-                      onChange={e => setFile(e.target.files?.[0] || null)} />
+                    <input
+                      type="file"
+                      accept=".pdf,.ai,.eps"
+                      className="hidden"
+                      onChange={e => setFile(e.target.files?.[0] || null)}
+                    />
                   </label>
                 </div>
 
                 <div className="flex gap-3">
-                  <button onClick={() => setStep(2)}
-                    className="flex-1 text-[13px] text-gray-500 py-2.5 rounded-lg border border-black/[0.08] dark:border-white/[0.08] hover:bg-gray-50 dark:hover:bg-white/[0.04] transition-colors">
+                  <button
+                    onClick={() => setStep(2)}
+                    className="flex-1 text-[13px] text-gray-500 py-2.5 rounded-lg border border-black/[0.08] dark:border-white/[0.08] hover:bg-gray-50 dark:hover:bg-white/[0.04] transition-colors"
+                  >
                     Sonra yükle
                   </button>
-                  <button onClick={handleUpload} disabled={uploadLoading || !file}
-                    className="flex-1 bg-[#F4821F] text-white text-[13px] font-medium py-2.5 rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50">
+                  <button
+                    onClick={handleUpload}
+                    disabled={uploadLoading || !file}
+                    className="flex-1 bg-[#F4821F] text-white text-[13px] font-medium py-2.5 rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50"
+                  >
                     {uploadLoading ? 'Yükleniyor...' : 'Yükle ve devam et →'}
                   </button>
                 </div>
               </div>
             )}
 
-            {/* ADIM 3 */}
+            {/* ADIM 3 — Özet */}
             {step === 2 && (
               <div className="space-y-4">
                 <div className="flex items-center gap-3 p-4 bg-emerald-50 dark:bg-emerald-500/10 rounded-xl">
@@ -215,18 +287,26 @@ function SiparisContent() {
                     <Check size={16} className="text-white" />
                   </div>
                   <div>
-                    <p className="text-[13px] font-medium text-gray-900 dark:text-gray-100">Ürün sepete eklendi</p>
-                    <p className="text-[11px] text-gray-400">Sepetten devam ederek ödeme yapabilirsiniz</p>
+                    <p className="text-[13px] font-medium text-gray-900 dark:text-gray-100">
+                      Ürün sepete eklendi
+                    </p>
+                    <p className="text-[11px] text-gray-400">
+                      Sepetten devam ederek ödeme yapabilirsiniz
+                    </p>
                   </div>
                 </div>
 
                 <div className="flex gap-3">
-                  <button onClick={() => { setStep(0); setPrice(null); setFile(null); setCartItemId(null) }}
-                    className="flex-1 text-[13px] text-gray-500 py-2.5 rounded-lg border border-black/[0.08] dark:border-white/[0.08] hover:bg-gray-50 transition-colors">
+                  <button
+                    onClick={() => { setStep(0); setPrice(null); setFile(null); setCartItemId(null) }}
+                    className="flex-1 text-[13px] text-gray-500 py-2.5 rounded-lg border border-black/[0.08] dark:border-white/[0.08] hover:bg-gray-50 transition-colors"
+                  >
                     Yeni ürün ekle
                   </button>
-                  <button onClick={() => router.push('/sepet')}
-                    className="flex-1 bg-[#F4821F] text-white text-[13px] font-medium py-2.5 rounded-lg hover:opacity-90 transition-opacity">
+                  <button
+                    onClick={() => router.push('/sepet')}
+                    className="flex-1 bg-[#F4821F] text-white text-[13px] font-medium py-2.5 rounded-lg hover:opacity-90 transition-opacity"
+                  >
                     Sepete git →
                   </button>
                 </div>
