@@ -54,7 +54,7 @@ function SiparislerContent() {
   }
 
   return (
-    <AdminGuard>
+       <AdminGuard>
       <AdminNavbar />
       <main className="min-h-screen bg-gray-50 dark:bg-[#0a0a0a]">
         <div className="max-w-7xl mx-auto px-6 py-10">

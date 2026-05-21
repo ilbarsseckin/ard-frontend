@@ -7,7 +7,6 @@ export default function AdminGuard({ children }: { children: React.ReactNode }) 
   const [ready, setReady] = useState(false)
 
   useEffect(() => {
-    // localStorage'dan direkt oku
     try {
       const stored = localStorage.getItem('baski-auth')
       if (!stored) { router.push('/giris'); return }

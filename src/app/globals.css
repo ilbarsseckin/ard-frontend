@@ -2,73 +2,93 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ── Renk değişkenleri ── */
 :root {
   --orange: #F4821F;
-  --navy: #0F2040;
-  --navy-dark: #07101E;
+  --bg-primary: #F7F5F0;
+  --bg-secondary: #EDEAE3;
+  --bg-card: #FFFFFF;
+  --bg-card-hover: #FAFAF8;
+  --text-primary: #1A1814;
+  --text-secondary: #6B6660;
+  --text-muted: #A09A94;
+  --border: rgba(26,24,20,0.08);
+  --border-strong: rgba(26,24,20,0.14);
+  --surface: rgba(26,24,20,0.04);
+}
+
+.dark {
+  --bg-primary: #141210;
+  --bg-secondary: #1C1916;
+  --bg-card: #201D1A;
+  --bg-card-hover: #252220;
+  --text-primary: #F0ECE6;
+  --text-secondary: #9C9590;
+  --text-muted: #5C5854;
+  --border: rgba(240,236,230,0.07);
+  --border-strong: rgba(240,236,230,0.12);
+  --surface: rgba(240,236,230,0.04);
 }
 
 * { box-sizing: border-box; }
-
 html { scroll-behavior: smooth; }
 
 body {
-  @apply bg-white text-gray-900 antialiased;
-  transition: background-color 0.3s, color 0.3s;
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: 'Georgia', 'Times New Roman', serif;
+  -webkit-font-smoothing: antialiased;
+  transition: background-color 0.4s ease, color 0.4s ease;
 }
 
-.dark body {
-  @apply bg-[#0a0a0a] text-gray-100;
-}
-
-/* Paint splash effect */
-.splash-bg {
-  position: absolute;
-  pointer-events: none;
-  border-radius: 50%;
-  filter: blur(60px);
-}
-
-/* Ticker */
+/* ── Ticker ── */
 .ticker-track {
   display: flex;
   width: max-content;
-  animation: ticker 40s linear infinite;
+  animation: ticker 35s linear infinite;
 }
-
 @keyframes ticker {
-  0% { transform: translateX(0); }
+  0%   { transform: translateX(0); }
   100% { transform: translateX(-50%); }
 }
 
-/* Scrollbar */
-::-webkit-scrollbar { width: 6px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: #ddd; border-radius: 3px; }
-.dark ::-webkit-scrollbar-thumb { background: #333; }
-
-/* Progress bar */
-.progress-bar {
-  height: 3px;
-  border-radius: 2px;
-  background: rgba(0,0,0,0.08);
-  overflow: hidden;
-}
-.dark .progress-bar { background: rgba(255,255,255,0.08); }
-
-/* Fade up animation */
+/* ── Animasyonlar ── */
 .animate-in {
-  animation: fadeUp 0.6s ease forwards;
+  animation: fadeUp 0.8s cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
 @keyframes fadeUp {
-  from { opacity: 0; transform: translateY(20px); }
-  to { opacity: 1; transform: translateY(0); }
+  from { opacity: 0; transform: translateY(28px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
-/* Card hover */
+.animate-in-right {
+  animation: fadeRight 0.9s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+@keyframes fadeRight {
+  from { opacity: 0; transform: translateX(24px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+/* ── Kart hover ── */
 .card-hover {
-  transition: border-color 0.2s, transform 0.2s;
+  transition: border-color 0.25s ease, transform 0.2s ease, box-shadow 0.25s ease;
 }
 .card-hover:hover {
-  border-color: var(--orange) !important;
+  transform: translateY(-2px);
 }
+
+/* ── Progress bar ── */
+.progress-bar {
+  height: 2px;
+  border-radius: 2px;
+  background: var(--border);
+  overflow: hidden;
+}
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 3px; }
+
+/* ── Sanatsal metin seçim rengi ── */
+::selection { background: rgba(244,130,31,0.2); color: var(--text-primary); }

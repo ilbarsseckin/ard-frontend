@@ -17,10 +17,14 @@ export default function GirisPage() {
   const onSubmit = async (data: { email: string; password: string }) => {
     try {
       const res = await authApi.login(data.email, data.password)
-      const { token, email, name, role } = res.data.data
-      setAuth({ id: '', name, email, role }, token)
+      const { token, email, name, role, id } = res.data.data
+      setAuth({ id: id || '', name, email, role }, token)
       toast.success('Giriş başarılı!')
-      router.push('/')
+      if (role === 'ADMIN' || role === 'OPERATOR') {
+        router.push('/admin')
+      } else {
+        router.push('/')
+      }
     } catch (err: any) {
       toast.error(err.response?.data?.message || 'Giriş başarısız')
     }

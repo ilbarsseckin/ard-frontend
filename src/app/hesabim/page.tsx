@@ -24,11 +24,27 @@ export default function HesabimPage() {
   const [orders, setOrders] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    if (!user) { router.push('/giris'); return }
-    orderApi.list().then(r => setOrders(r.data.data || [])).finally(() => setLoading(false))
-  }, [user])
+const [mounted, setMounted] = useState(false)
 
+useEffect(() => {
+  setMounted(true)
+}, [])
+
+useEffect(() => {
+  if (!mounted) return
+  try {
+    const stored = localStorage.getItem('baski-auth')
+    if (!stored) { router.push('/giris'); return }
+    const { state } = JSON.parse(stored)
+    if (!state?.token) { router.push('/giris'); return }
+    orderApi.list()
+      .then(r => setOrders(r.data.data || []))
+      .catch(() => {})
+      .finally(() => setLoading(false))
+  } catch {
+    router.push('/giris')
+  }
+}, [mounted])
   const handleLogout = () => { logout(); router.push('/') }
 
   return (

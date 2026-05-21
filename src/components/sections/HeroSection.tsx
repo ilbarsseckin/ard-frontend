@@ -1,188 +1,219 @@
 'use client'
+import Link from 'next/link'
+import { ArrowRight, Play } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import api from '@/lib/api'
 
-import {
-  Printer,
-  Scissors,
-  Layers,
-  ArrowRight,
-  ShoppingCart,
-  Sparkles,
-} from 'lucide-react'
-
-const machines = [
-  {
-    name: 'HP Latex 700W',
-    desc: 'Büyük format · 2.64m · 1200dpi',
-    pct: 72,
-    color: '#F4821F',
-    icon: Printer,
-    active: true,
-  },
-  {
-    name: 'Roland TrueVIS VG3',
-    desc: 'Sticker + Kesim · 1440dpi',
-    pct: 55,
-    color: '#0F6E56',
-    icon: Scissors,
-    active: true,
-  },
-  {
-    name: 'Konica AccurioPress',
-    desc: 'Dijital Ofset · 4800dpi',
-    pct: 88,
-    color: '#854F0B',
-    icon: Layers,
-    active: false,
-  },
+const stats = [
+  { n: '12.000+', l: 'Müşteri' },
+  { n: '48 saat', l: 'Teslimat' },
+  { n: '4.9 ★', l: 'Google' },
+  { n: '1.200 m²', l: 'Fabrika' },
 ]
 
-const ticker = [
-  'İstanbul — Vinil Baskı — 2dk önce',
-  'Ankara — Kartvizit — 5dk önce',
-  'İzmir — Katalog Baskı — 8dk önce',
-  'Bursa — Sticker Kesim — 12dk önce',
-]
+export default function HeroSection() {
+  const [ticker, setTicker] = useState<string[]>([])
 
-export default function PrintVisionCorporate() {
+  useEffect(() => {
+    api.get('/api/references')
+      .then(r => {
+        const names = (r.data.data || []).map((ref: any) => ref.name)
+        setTicker(names.length > 0 ? names : [])
+      })
+      .catch(() => setTicker([]))
+  }, [])
+
   return (
-    <div className="min-h-screen bg-[#f3f5f9] text-[#111827] overflow-hidden">
+    <section className="relative overflow-hidden" style={{ minHeight: '91vh', display: 'flex', flexDirection: 'column' }}>
 
-      {/* PAINT SPLASH EFFECTS */}
-      <div className="absolute top-[-120px] right-[-80px] w-[500px] h-[500px] bg-orange-500/20 blur-3xl rounded-full mix-blend-multiply" />
-      <div className="absolute top-[120px] right-[200px] w-[300px] h-[300px] bg-blue-500/20 blur-3xl rounded-full mix-blend-multiply" />
-      <div className="absolute top-[300px] left-[-120px] w-[400px] h-[400px] bg-emerald-400/10 blur-3xl rounded-full mix-blend-multiply" />
-      <div className="absolute bottom-[-150px] left-[200px] w-[500px] h-[500px] bg-pink-500/10 blur-3xl rounded-full mix-blend-multiply" />
+      {/* Tam ekran arka plan görseli */}
+      <div className="absolute inset-0 z-0">
+        <video
+          autoPlay
+          muted
+          loop
+          playsInline
+          className="w-full h-full object-cover object-center"
+          style={{ opacity: 0.32 }}
+        >
+          <source src="/videos/hero.mp4" type="video/mp4" />
+        </video>
+        {/* Sanatsal renk overlay */}
+        <div className="absolute inset-0"
+          style={{ background: 'linear-gradient(105deg, var(--bg-primary) 42%, color-mix(in srgb, var(--bg-primary) 60%, transparent) 65%, transparent 100%)' }} />
+        <div className="absolute inset-0"
+          style={{ background: 'linear-gradient(to top, var(--bg-primary) 0%, transparent 45%)' }} />
+      </div>
 
-      <section className="relative overflow-hidden border-b border-black/5 bg-white">
+      {/* Dekoratif turuncu çizgi - sol kenar */}
+      <div className="absolute left-0 top-0 bottom-0 w-[3px] z-10"
+        style={{ background: 'linear-gradient(to bottom, transparent, #F4821F 30%, #F4821F 70%, transparent)' }} />
 
-        <div className="absolute inset-0 opacity-[0.06] bg-[radial-gradient(circle_at_20%_30%,#F4821F,transparent_40%),radial-gradient(circle_at_80%_70%,#3b82f6,transparent_45%)]" />
+      {/* İçerik */}
+      <div className="relative z-10 flex-1 max-w-7xl mx-auto px-6 w-full flex items-center">
+        <div className="grid grid-cols-2 gap-16 items-center w-full py-20">
 
-        <div className="max-w-7xl mx-auto px-6 pt-10 pb-16 relative z-10">
+          {/* Sol */}
+          <div className="animate-in">
 
-          <header className="flex items-center justify-between mb-16">
-            <div>
-              <h1 className="text-3xl font-black tracking-[-1px]">
-                PRINTORA
+            {/* Üst etiket */}
+            <div className="flex items-center gap-3 mb-10">
+              <div className="flex items-center gap-2">
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400" />
+                </span>
+                <span className="text-[10px] tracking-[2.5px] uppercase font-semibold"
+                  style={{ color: 'var(--text-muted)' }}>
+                  Fabrika aktif
+                </span>
+              </div>
+              <span style={{ color: 'var(--border-strong)' }}>·</span>
+              <span className="text-[10px] tracking-[2.5px] uppercase font-semibold text-[#F4821F]">
+                Sipariş alınıyor
+              </span>
+            </div>
+
+            {/* Ana başlık — sanatsal tipografi */}
+            <div className="mb-8">
+              <p className="text-[13px] tracking-[3px] uppercase mb-4 font-semibold"
+                style={{ color: 'var(--text-muted)', fontFamily: 'Georgia, serif' }}>
+                Türkiye'nin önde gelen matbaası
+              </p>
+              <h1 style={{ fontFamily: 'Georgia, serif', color: 'var(--text-primary)', lineHeight: 1.02, letterSpacing: '-2.5px' }}
+                className="text-[68px] font-bold">
+                Renklerin
               </h1>
-              <p className="text-[11px] tracking-[4px] text-gray-400 uppercase mt-1">
-                Premium Print Factory
-              </p>
+              <h1 style={{ fontFamily: 'Georgia, serif', lineHeight: 1.02, letterSpacing: '-2.5px' }}
+                className="text-[68px] font-bold text-[#F4821F]">
+                Gücünü
+              </h1>
+              <h1 style={{ fontFamily: 'Georgia, serif', color: 'var(--text-primary)', lineHeight: 1.02, letterSpacing: '-2.5px' }}
+                className="text-[68px] font-bold">
+                Hissettirin.
+              </h1>
             </div>
 
-            <button className="bg-[#111827] text-white px-5 py-3 rounded-2xl text-sm font-semibold flex items-center gap-2 shadow-xl">
-              <ShoppingCart size={16} />
-              Sepetim
-            </button>
-          </header>
+            <p className="text-[15px] leading-[1.7] mb-10 max-w-[420px]"
+              style={{ color: 'var(--text-secondary)', fontFamily: 'Georgia, serif' }}>
+              Büyük format, kartvizit, sticker, tabela. Tasarımını yükle,
+              anlık fiyatı gör, 48 saatte kapında.
+            </p>
 
-          <div className="grid lg:grid-cols-2 gap-14 items-center">
-
-            <div>
-              <div className="inline-flex items-center gap-2 bg-orange-100 text-orange-600 px-4 py-2 rounded-full text-xs font-semibold mb-7">
-                <Sparkles size={14} />
-                Türkiye'nin Yeni Nesil Baskı Merkezi
-              </div>
-
-              <h2 className="text-[68px] leading-[0.95] tracking-[-3px] font-black">
-                Baskının
-                <span className="block text-[#F4821F]">premium</span>
-                hali.
-              </h2>
-
-              <p className="mt-8 text-[17px] text-gray-500 leading-relaxed max-w-[520px]">
-                Kartvizit, katalog, kutu, sticker ve büyük format baskıları online sipariş ver.
-                Fabrika kalitesinde üretim, gerçek zamanlı takip.
-              </p>
-
-              <div className="flex gap-4 mt-10">
-                <a
-                  href="/siparis"
-                  className="bg-[#F4821F] text-white px-7 py-4 rounded-2xl font-semibold flex items-center gap-2 shadow-2xl shadow-orange-500/20 hover:scale-[1.02] transition"
-                >
-                  Hemen Sipariş Ver
-                  <ArrowRight size={16} />
-                </a>
-
-                <a
-                  href="/urunler"
-                  className="bg-white border border-black/10 px-7 py-4 rounded-2xl font-semibold hover:bg-gray-50 transition-all"
-                >
-                  Ürünleri İncele
-                </a>
-              </div>
+            {/* CTA */}
+            <div className="flex gap-4 mb-14">
+              <Link href="/siparis"
+                className="group flex items-center gap-3 bg-[#F4821F] text-white text-[13px] font-bold px-7 py-4 rounded-xl hover:bg-[#e07010] transition-all duration-200 shadow-md">
+                Hemen sipariş ver
+                <ArrowRight size={15} className="group-hover:translate-x-1 transition-transform" />
+              </Link>
+              <Link href="/#fabrika"
+                className="flex items-center gap-3 text-[13px] font-medium px-6 py-4 rounded-xl transition-all duration-200"
+                style={{ border: '1px solid var(--border-strong)', color: 'var(--text-secondary)', background: 'var(--surface)' }}>
+                <Play size={13} className="text-[#F4821F]" />
+                Fabrika turu
+              </Link>
             </div>
 
-            <div className="relative">
+            {/* İstatistik bar */}
+            <div className="grid grid-cols-4 overflow-hidden rounded-2xl"
+              style={{ border: '1px solid var(--border)', background: 'var(--bg-card)' }}>
+              {stats.map((s, i) => (
+                <div key={i} className="px-5 py-4"
+                  style={{ borderRight: i < 3 ? '1px solid var(--border)' : 'none' }}>
+                  <div className="text-[20px] font-bold tracking-[-0.5px]"
+                    style={{ color: 'var(--text-primary)', fontFamily: 'Georgia, serif' }}>{s.n}</div>
+                  <div className="text-[10px] mt-0.5 tracking-[0.8px] uppercase font-medium"
+                    style={{ color: 'var(--text-muted)' }}>{s.l}</div>
+                </div>
+              ))}
+            </div>
+          </div>
 
-              <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent rounded-[40px]" />
+          {/* Sağ — canlı üretim paneli */}
+          <div className="flex justify-end animate-in-right" style={{ animationDelay: '0.2s' }}>
+            <div className="w-[340px] rounded-2xl p-5"
+              style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
 
-              <img
-                src="https://images.unsplash.com/photo-1562564055-71e051d33c19?q=80&w=1400&auto=format&fit=crop"
-                alt="Baskı fabrikası"
-                className="rounded-[40px] h-[720px] w-full object-cover shadow-2xl"
-              />
+              <div className="flex items-center justify-between mb-5">
+                <span className="text-[11px] font-bold tracking-[1.5px] uppercase"
+                  style={{ color: 'var(--text-primary)' }}>Canlı Üretim</span>
+                <div className="flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                  <span className="text-[10px] text-emerald-500 font-semibold">Aktif</span>
+                </div>
+              </div>
 
-              <div className="absolute top-6 right-6 flex flex-col gap-3 w-[280px]">
-                {machines.map((m, i) => (
-                  <div
-                    key={i}
-                    className="bg-white/90 backdrop-blur-xl border border-black/5 rounded-2xl p-4 shadow-xl"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div
-                        className="w-10 h-10 rounded-xl flex items-center justify-center"
-                        style={{ background: `${m.color}20` }}
-                      >
-                        <m.icon size={18} style={{ color: m.color }} />
-                      </div>
+              {[
+                { label: 'Sipariş Alındı', time: '2 dk önce', done: true },
+                { label: 'Tasarım Kontrolü', time: '5 dk önce', done: true },
+                { label: 'Baskı Hazırlık', time: '7 dk önce', done: true },
+                { label: 'Baskı İşlemi', time: 'Şu anda', active: true },
+                { label: 'Kesim', time: 'Sırada', pending: true },
+                { label: 'Paketleme', time: 'Sırada', pending: true },
+                { label: 'Sevkiyat', time: 'Bekliyor', pending: true },
+              ].map((step, i) => (
+                <div key={i} className="flex items-center gap-3 mb-3 last:mb-0">
+                  <div className={`w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0`}
+                    style={{
+                      background: step.done ? 'rgba(52,211,153,0.15)' : step.active ? 'rgba(244,130,31,0.15)' : 'var(--surface)',
+                      border: `1px solid ${step.done ? 'rgba(52,211,153,0.4)' : step.active ? 'rgba(244,130,31,0.5)' : 'var(--border)'}`,
+                    }}>
+                    {step.done && <span className="w-2 h-2 rounded-full bg-emerald-400" />}
+                    {step.active && <span className="w-2 h-2 rounded-full bg-[#F4821F] animate-pulse" />}
+                    {step.pending && <span className="w-2 h-2 rounded-full" style={{ background: 'var(--border-strong)' }} />}
+                  </div>
+                  <div className="flex-1 flex items-center justify-between">
+                    <span className="text-[12px] font-medium"
+                      style={{ color: (step.done || step.active) ? 'var(--text-primary)' : 'var(--text-muted)' }}>
+                      {step.label}
+                    </span>
+                    <span className="text-[10px]"
+                      style={{ color: step.active ? '#F4821F' : 'var(--text-muted)' }}>
+                      {step.time}
+                    </span>
+                  </div>
+                </div>
+              ))}
 
-                      <div className="flex-1">
-                        <h4 className="text-sm font-bold">
-                          {m.name}
-                        </h4>
-                        <p className="text-[11px] text-gray-500 mt-1">
-                          {m.desc}
-                        </p>
-                      </div>
-
-                      <span className={`w-2.5 h-2.5 rounded-full ${m.active ? 'bg-emerald-400' : 'bg-orange-400'}`} />
+              <div className="mt-5 pt-4" style={{ borderTop: '1px solid var(--border)' }}>
+                <div className="text-[10px] uppercase tracking-[1px] mb-2 font-semibold"
+                  style={{ color: 'var(--text-muted)' }}>Güncel siparişler</div>
+                {[
+                  { city: 'İstanbul', product: 'Mağaza Vinil', size: '3×2m' },
+                  { city: 'Ankara', product: 'Kartvizit', size: '500 adet' },
+                ].map((o, i) => (
+                  <div key={i} className="flex items-center justify-between mb-2 last:mb-0">
+                    <div className="flex items-center gap-2">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                      <span className="text-[11px]" style={{ color: 'var(--text-secondary)' }}>{o.city} — {o.product}</span>
                     </div>
-
-                    <div className="w-full h-2 bg-gray-100 rounded-full mt-4 overflow-hidden">
-                      <div
-                        className="h-full rounded-full"
-                        style={{ width: `${m.pct}%`, background: m.color }}
-                      />
-                    </div>
+                    <span className="text-[10px]" style={{ color: 'var(--text-muted)' }}>{o.size}</span>
                   </div>
                 ))}
               </div>
             </div>
           </div>
         </div>
+      </div>
 
-        <div className="border-t border-black/5 bg-[#fafafa] overflow-hidden py-4">
-          <div className="flex gap-8 whitespace-nowrap animate-[scroll_25s_linear_infinite] px-8">
-            {[...ticker, ...ticker].map((t, i) => (
-              <div key={i} className="flex items-center gap-2 text-[13px] text-gray-500">
-                <span className="w-2 h-2 rounded-full bg-emerald-400" />
-                {t}
-              </div>
-            ))}
+      {/* Alt ticker — referanslar kayar */}
+      <div className="relative z-10 py-3 overflow-hidden"
+        style={{ borderTop: '1px solid var(--border)', background: 'var(--bg-secondary)' }}>
+        <div className="flex items-center gap-4 px-6">
+          <div className="flex-1 overflow-hidden">
+            <div className="ticker-track">
+              {(() => { const copies = Math.max(2, Math.ceil(20 / (ticker.length || 1))); return Array(copies).fill(ticker).flat(); })().map((name, i) => (
+                <span key={i} className="flex items-center gap-3 mr-10 text-[12px] font-semibold whitespace-nowrap"
+                  style={{ color: 'var(--text-secondary)', fontFamily: 'Georgia, serif' }}>
+                  <span className="w-1 h-4 rounded-full bg-[#F4821F] opacity-60 flex-shrink-0" />
+                  {name}
+                </span>
+              ))}
+            </div>
           </div>
         </div>
-
-        <style jsx>{`
-          @keyframes scroll {
-            0% { transform: translateX(0); }
-            100% { transform: translateX(-50%); }
-          }
-          .animate-\[scroll_25s_linear_infinite\] {
-            animation: scroll 25s linear infinite;
-            width: max-content;
-          }
-        `}</style>
-      </section>
-    </div>
+      </div>
+    </section>
   )
 }

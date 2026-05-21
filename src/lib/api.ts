@@ -92,3 +92,20 @@ export const userApi = {
   updateProfile: (data: { name: string; phone?: string }) =>
     api.put('/api/user/profile', data),
 }
+
+api.interceptors.response.use(
+  (res) => res,
+  (err) => {
+    if ((err.response?.status === 401 || err.response?.status === 400) && typeof window !== 'undefined') {
+      // Sadece auth endpoint'leri değilse
+      const url = err.config?.url || ''
+      if (!url.includes('/api/auth/')) {
+        const stored = localStorage.getItem('baski-auth')
+        if (!stored) {
+          window.location.href = '/giris'
+        }
+      }
+    }
+    return Promise.reject(err)
+  }
+)

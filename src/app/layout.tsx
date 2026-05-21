@@ -1,5 +1,4 @@
 import type { Metadata } from 'next'
-// @ts-expect-error: global CSS side-effect import without explicit type declarations
 import './globals.css'
 import { Toaster } from 'react-hot-toast'
 import { ThemeProvider } from '@/components/layout/ThemeProvider'
