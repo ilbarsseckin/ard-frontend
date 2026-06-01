@@ -1,83 +1,98 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import api from '@/lib/api'
-import { Calculator, ChevronDown, ArrowRight } from 'lucide-react'
+import api, { productApi } from '@/lib/api'
+import { Calculator, ChevronDown, ArrowRight, Loader2 } from 'lucide-react'
 
-const BASKI_TIPLERI = [
-  { label: '280 GR VİNİL BASKI',        slug: 'buyuk-format-vinil', fiyat: 3.2  },
-  { label: '440 GR VİNİL BASKI',        slug: 'buyuk-format-vinil', fiyat: 3.8  },
-  { label: 'FOLYO',                      slug: 'sticker-genel',      fiyat: 4.5  },
-  { label: 'ONE WAY VİSİON',            slug: 'sticker-genel',      fiyat: 6.0  },
-  { label: '440 GR AVRUPA VİNİL BASKI', slug: 'buyuk-format-vinil', fiyat: 5.2  },
-  { label: 'IŞIKLI AVRUPA VİNİL',       slug: 'buyuk-format-vinil', fiyat: 7.5  },
-  { label: 'IŞIKLI ÇİN VİNİL',         slug: 'buyuk-format-vinil', fiyat: 6.8  },
-  { label: 'ARKASI SİYAH VİNİL',        slug: 'buyuk-format-vinil', fiyat: 5.8  },
-  { label: 'MESH VİNİL',                slug: 'buyuk-format-vinil', fiyat: 4.2  },
-  { label: 'MAT FOLYO',                 slug: 'sticker-genel',      fiyat: 4.8  },
-  { label: 'ARKASI GRİ FOLYO',         slug: 'sticker-genel',      fiyat: 5.0  },
-  { label: 'KUMLU FOLYO',              slug: 'sticker-genel',      fiyat: 5.5  },
-  { label: 'CANVAS',                    slug: 'buyuk-format-vinil', fiyat: 5.5  },
-  { label: 'RAKET',                     slug: 'tabela-forex',       fiyat: 8.0  },
-  { label: 'BİLBOARD',                 slug: 'buyuk-format-branda', fiyat: 3.5  },
-  { label: 'BAS-KES',                  slug: 'sticker-genel',      fiyat: 9.0  },
-  { label: 'LAMİNASYON',              slug: 'buyuk-format-vinil', fiyat: 2.5  },
-  { label: 'ŞEFFAF FOLYO',            slug: 'sticker-genel',      fiyat: 5.2  },
-  { label: 'LAMİNASYON ve FOLYO',     slug: 'buyuk-format-vinil', fiyat: 6.5  },
-]
-
-const EK_SECENEKLER = {
-  kopca:      { label: 'KOPÇA (4 TARAF)', options: ['YOK', 'VAR (+15₺/m²)'],       fiyat: [0, 15] },
-  sopalik:    { label: 'SOPALIK DİKİŞ',  options: ['YOK', 'ÜST', 'ALT', 'İKİSİ'], fiyat: [0, 8, 8, 14] },
-  kolonDikis: { label: 'KOLON DİKİŞ',   options: ['YOK', 'VAR (+8₺/m²)'],         fiyat: [0, 8] },
-  kaynak:     { label: 'KAYNAK',         options: ['YOK', 'VAR (+5₺/m²)'],         fiyat: [0, 5] },
+interface AreaProduct {
+  id: string
+  name: string
+  slug: string
+  pricingModel: string
+  unit: string
+  basePrice?: number       // USD
 }
 
 export default function HesaplamaSection() {
   const router = useRouter()
   const [kur, setKur] = useState(45)
-  const [baskiTipi, setBaskiTipi] = useState(0)
+  const [products, setProducts] = useState<AreaProduct[]>([])
+  const [productsLoading, setProductsLoading] = useState(true)
+  const [selectedSlug, setSelectedSlug] = useState('')
   const [yukseklik, setYukseklik] = useState('')
   const [genislik, setGenislik] = useState('')
   const [adet, setAdet] = useState('1')
   const [ekUcret, setEkUcret] = useState('0')
-  const [secenekler, setSecenekler] = useState({ kopca: 0, sopalik: 0, kolonDikis: 0, kaynak: 0 })
-  const [sonuc, setSonuc] = useState<{ m2: number; usd: number; tl: number } | null>(null)
+  const [calcLoading, setCalcLoading] = useState(false)
+  const [sonuc, setSonuc] = useState<{ m2: number; usd: number; tl: number; breakdown: string } | null>(null)
 
+  // Kuru ve AREA_BASED ürünleri yükle
   useEffect(() => {
     api.get('/api/settings/public')
       .then(r => setKur(parseFloat(r.data.data?.usd_kur || '45')))
       .catch(() => {})
+
+    productApi.list()
+      .then(r => {
+        const all: AreaProduct[] = r.data.data || []
+        // Hesaplama bölümü m² bazlı ürünler için anlamlı
+        const areaProducts = all.filter(p => p.pricingModel === 'AREA_BASED')
+        setProducts(areaProducts)
+        if (areaProducts.length > 0) setSelectedSlug(areaProducts[0].slug)
+      })
+      .catch(() => {})
+      .finally(() => setProductsLoading(false))
   }, [])
 
-  const hesapla = () => {
+  const selectedProduct = products.find(p => p.slug === selectedSlug)
+
+  const hesapla = async () => {
     const h = parseFloat(yukseklik)
     const w = parseFloat(genislik)
     const a = parseInt(adet) || 1
     const ek = parseFloat(ekUcret) || 0
-    if (!h || !w) return
+    if (!h || !w || !selectedSlug) return
 
-    const m2 = h * w * a
-    const birimFiyatUSD = BASKI_TIPLERI[baskiTipi].fiyat
-    const ekTL = (
-      EK_SECENEKLER.kopca.fiyat[secenekler.kopca] +
-      EK_SECENEKLER.sopalik.fiyat[secenekler.sopalik] +
-      EK_SECENEKLER.kolonDikis.fiyat[secenekler.kolonDikis] +
-      EK_SECENEKLER.kaynak.fiyat[secenekler.kaynak]
-    ) * m2
-    const usd = birimFiyatUSD * m2
-    const tl = (usd * kur) + ekTL + ek
-    setSonuc({ m2: Math.round(m2 * 100) / 100, usd: Math.round(usd * 100) / 100, tl: Math.round(tl) })
+    setCalcLoading(true)
+    try {
+      const res = await productApi.calculatePrice({
+        productSlug: selectedSlug,
+        widthCm: Math.round(w * 100),
+        heightCm: Math.round(h * 100),
+        quantity: a,
+      })
+      const data = res.data.data
+      const tlBase = Number(data.totalPrice)
+      const tlFinal = tlBase + ek
+      const usd = tlBase / (kur || 1)
+      const m2 = Number(data.areaMq ?? (h * w * a))
+
+      setSonuc({
+        m2: Math.round(m2 * 100) / 100,
+        usd: Math.round(usd * 100) / 100,
+        tl: Math.round(tlFinal),
+        breakdown: data.priceBreakdown || '',
+      })
+    } catch {
+      setSonuc(null)
+    } finally {
+      setCalcLoading(false)
+    }
   }
 
   const siparisVer = () => {
-    const seciliUrun = BASKI_TIPLERI[baskiTipi]
+    if (!selectedSlug) return
     const params = new URLSearchParams()
-    params.set('urun', seciliUrun.slug)
+    params.set('urun', selectedSlug)
     if (yukseklik) params.set('boy', String(Math.round(parseFloat(yukseklik) * 100)))
     if (genislik)  params.set('en',  String(Math.round(parseFloat(genislik)  * 100)))
     if (adet)      params.set('adet', adet)
     router.push(`/siparis?${params.toString()}`)
+  }
+
+  // Hiç AREA_BASED ürün yoksa bölümü gösterme
+  if (!productsLoading && products.length === 0) {
+    return null
   }
 
   return (
@@ -92,7 +107,7 @@ export default function HesaplamaSection() {
               Anlık fiyat hesaplayın
             </h2>
             <p className="text-[14px] mt-1.5" style={{ color: 'var(--text-secondary)' }}>
-              Ölçülerinizi girin, saniyeler içinde fiyatı görün
+              Ürününüzü ve ölçülerinizi girin, anlık fiyatı görün
             </p>
           </div>
           <div className="flex items-center gap-2 px-4 py-2 rounded-xl"
@@ -105,18 +120,20 @@ export default function HesaplamaSection() {
 
         <div className="rounded-2xl p-8" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
 
-          {/* Baskı tipi */}
+          {/* Ürün seçimi */}
           <div className="grid grid-cols-2 gap-6 mb-6">
             <div>
               <label className="block text-[11px] font-bold uppercase tracking-[1px] mb-2"
                 style={{ color: 'var(--text-muted)' }}>Baskı Tipi</label>
               <div className="relative">
-                <select value={baskiTipi} onChange={e => { setBaskiTipi(+e.target.value); setSonuc(null) }}
-                  className="w-full px-4 py-3 rounded-xl text-[13px] font-semibold outline-none appearance-none cursor-pointer"
+                <select value={selectedSlug}
+                  onChange={e => { setSelectedSlug(e.target.value); setSonuc(null) }}
+                  disabled={productsLoading}
+                  className="w-full px-4 py-3 rounded-xl text-[13px] font-semibold outline-none appearance-none cursor-pointer disabled:opacity-50"
                   style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}>
-                  {BASKI_TIPLERI.map((b, i) => (
-                    <option key={i} value={i}>{b.label}</option>
-                  ))}
+                  {productsLoading
+                    ? <option>Yükleniyor...</option>
+                    : products.map(p => <option key={p.slug} value={p.slug}>{p.name}</option>)}
                 </select>
                 <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none"
                   style={{ color: 'var(--text-muted)' }} />
@@ -129,14 +146,16 @@ export default function HesaplamaSection() {
                   Birim Fiyat
                 </span>
                 <p className="text-[16px] font-bold text-[#F4821F] mt-0.5">
-                  ${BASKI_TIPLERI[baskiTipi].fiyat.toFixed(2)} / m²
+                  {selectedProduct?.basePrice
+                    ? `$${Number(selectedProduct.basePrice).toFixed(2)} / m²`
+                    : '—'}
                 </p>
               </div>
             </div>
           </div>
 
           {/* Ölçüler */}
-          <div className="grid grid-cols-5 gap-4 mb-6">
+          <div className="grid grid-cols-5 gap-4 mb-8">
             {[
               { label: 'Yükseklik (m)', val: yukseklik, set: setYukseklik, placeholder: '2.00' },
               { label: 'Genişlik (m)',  val: genislik,  set: setGenislik,  placeholder: '3.00' },
@@ -156,39 +175,18 @@ export default function HesaplamaSection() {
               <label className="block text-[11px] font-bold uppercase tracking-[1px] mb-2"
                 style={{ color: 'var(--text-muted)' }}>Toplam (m²)</label>
               <div className="px-4 py-3 rounded-xl text-[13px] font-semibold"
-                style={{ background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}>
+                style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}>
                 {sonuc ? sonuc.m2 : '—'}
               </div>
             </div>
           </div>
 
-          {/* Ek seçenekler */}
-          <div className="grid grid-cols-4 gap-4 mb-8">
-            {Object.entries(EK_SECENEKLER).map(([key, opt]) => (
-              <div key={key}>
-                <label className="block text-[11px] font-bold uppercase tracking-[1px] mb-2"
-                  style={{ color: 'var(--text-muted)' }}>{opt.label}</label>
-                <div className="relative">
-                  <select
-                    value={secenekler[key as keyof typeof secenekler]}
-                    onChange={e => { setSecenekler(s => ({ ...s, [key]: +e.target.value })); setSonuc(null) }}
-                    className="w-full px-4 py-3 rounded-xl text-[13px] outline-none appearance-none cursor-pointer"
-                    style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}>
-                    {opt.options.map((o, i) => <option key={i} value={i}>{o}</option>)}
-                  </select>
-                  <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none"
-                    style={{ color: 'var(--text-muted)' }} />
-                </div>
-              </div>
-            ))}
-          </div>
-
           {/* Hesapla + Sonuç */}
           <div className="flex items-center gap-6 flex-wrap">
-            <button onClick={hesapla}
-              className="flex items-center gap-2 bg-[#F4821F] text-white text-[14px] font-bold px-10 py-4 rounded-xl hover:bg-[#e07010] transition-colors shadow-sm">
-              <Calculator size={16} />
-              HESAPLA
+            <button onClick={hesapla} disabled={calcLoading || !selectedSlug}
+              className="flex items-center gap-2 bg-[#F4821F] text-white text-[14px] font-bold px-10 py-4 rounded-xl hover:bg-[#e07010] transition-colors shadow-sm disabled:opacity-50">
+              {calcLoading ? <Loader2 size={16} className="animate-spin" /> : <Calculator size={16} />}
+              {calcLoading ? 'HESAPLANIYOR...' : 'HESAPLA'}
             </button>
 
             {sonuc && (
@@ -216,10 +214,15 @@ export default function HesaplamaSection() {
             )}
           </div>
 
-          {/* Sipariş ver butonu — sonuç hesaplandıktan sonra çıkar */}
+          {sonuc?.breakdown && (
+            <p className="text-[11px] mt-3" style={{ color: 'var(--text-muted)' }}>
+              {sonuc.breakdown}
+            </p>
+          )}
+
+          {/* Sipariş ver butonu */}
           {sonuc && (
-            <div className="mt-5 flex items-center gap-4 pt-5 border-t"
-              style={{ borderColor: 'var(--border)' }}>
+            <div className="mt-5 flex items-center gap-4 pt-5 border-t" style={{ borderColor: 'var(--border)' }}>
               <div className="flex-1">
                 <p className="text-[13px] font-medium" style={{ color: 'var(--text-primary)' }}>
                   Bu fiyatla sipariş vermek ister misiniz?
@@ -228,10 +231,8 @@ export default function HesaplamaSection() {
                   Seçtiğiniz ürün ve ölçüler otomatik aktarılır.
                 </p>
               </div>
-              <button
-                onClick={siparisVer}
-                className="flex items-center gap-2 bg-gray-900 dark:bg-white text-white dark:text-gray-900 text-[13px] font-bold px-6 py-3 rounded-xl hover:opacity-90 transition-opacity"
-              >
+              <button onClick={siparisVer}
+                className="flex items-center gap-2 bg-gray-900 dark:bg-white text-white dark:text-gray-900 text-[13px] font-bold px-6 py-3 rounded-xl hover:opacity-90 transition-opacity">
                 Sipariş ver
                 <ArrowRight size={14} />
               </button>

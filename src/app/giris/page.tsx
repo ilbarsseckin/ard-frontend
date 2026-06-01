@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
@@ -7,6 +7,7 @@ import toast from 'react-hot-toast'
 import { Printer, Eye, EyeOff } from 'lucide-react'
 import { authApi } from '@/lib/api'
 import { useAuthStore } from '@/lib/store/auth'
+import Logo from '@/components/ui/Logo'
 
 export default function GirisPage() {
   const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<{ email: string; password: string }>()
@@ -38,7 +39,7 @@ export default function GirisPage() {
             <div className="w-9 h-9 rounded-xl bg-gray-900 dark:bg-gray-100 flex items-center justify-center">
               <Printer size={18} className="text-[#F4821F]" />
             </div>
-            <span className="text-[16px] font-medium text-gray-900 dark:text-gray-100">BaskıPro</span>
+            <Logo className="h-7" />
           </Link>
           <h1 className="text-[22px] font-medium tracking-[-0.5px] text-gray-900 dark:text-gray-100">Hesabınıza giriş yapın</h1>
           <p className="text-[13px] text-gray-400 mt-1.5">Siparişlerinizi takip edin</p>

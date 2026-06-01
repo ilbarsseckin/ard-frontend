@@ -1,53 +1,110 @@
 'use client'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { ShoppingCart, User, Printer, Sun, Moon, Search, ChevronDown } from 'lucide-react'
+import {
+  ShoppingCart, User, Sun, Moon, Search, ChevronDown, Heart,
+  ArrowRight, Package, Sparkles, HelpCircle, Phone,
+  FileText, Upload, BookOpen, Menu, X,
+} from 'lucide-react'
 import { useCartStore } from '@/lib/store/cart'
 import { useTheme } from './ThemeProvider'
 import { useState, useRef, useEffect } from 'react'
-import { productApi } from '@/lib/api'
+import api from '@/lib/api'
+import Logo from '@/components/ui/Logo'
+import { useFavorites } from '@/hooks/useFavorites'
 
-const KATEGORILER = [
-  { slug: 'kartvizit',    label: 'Kartvizit',      icon: '🪪' },
-  { slug: 'buyuk-format', label: 'Büyük Format',   icon: '🖼️' },
-  { slug: 'sticker',      label: 'Sticker',         icon: '🏷️' },
-  { slug: 'tabela',       label: 'Tabela',          icon: '🪧' },
-  { slug: 'brosur',       label: 'El İlanı - Broşür', icon: '📄' },
-  { slug: 'promosyon',    label: 'Promosyon',       icon: '🎁' },
+interface Category {
+  id: string
+  slug: string
+  name: string
+  icon?: string
+  parentId?: string | null
+  sortOrder?: number
+  children?: Category[]
+}
+
+interface Product {
+  id: string
+  slug: string
+  name: string
+  shortDesc?: string
+  categorySlug: string
+  categoryName: string
+  mainImageUrl?: string
+  featured?: boolean
+}
+
+const topUtility = [
+  { href: '/kampanyalar',                label: 'Kampanyalar',                  icon: Sparkles  },
+  { href: '/nasil-siparis',              label: 'Nasıl Sipariş Verebilirim?',   icon: FileText  },
+  { href: '/tasarim-yukleme',            label: 'Tasarım Yükleme ve Onay',      icon: Upload    },
+  { href: '/tasarim-destegi',            label: 'Ücretsiz Tasarım Desteği',     icon: Sparkles  },
+  { href: '/blog',                       label: 'Blog',                         icon: BookOpen  },
+  { href: '/yardim',                     label: 'Yardım Merkezi',               icon: HelpCircle },
+  { href: '/iletisim',                   label: 'İletişim',                     icon: Phone     },
 ]
 
 const kurumsal = [
   { href: '/hakkimizda',       label: 'Hakkımızda' },
   { href: '/tarihce',          label: 'Tarihçe' },
   { href: '/insan-kaynaklari', label: 'İnsan Kaynakları' },
-  { href: '/bayilik', label: 'Bayimiz Olun' },
-  { href: '/blog',             label: 'Blog' },
-  { href: '/iletisim',         label: 'İletişim' },
+  { href: '/bayilik',          label: 'Bayimiz Olun' },
 ]
 
-function kategoriFromSlug(slug: string) {
-  for (const k of KATEGORILER) {
-    if (slug.startsWith(k.slug)) return k.slug
+function getBadge(slug: string): { label: string; bg: string; color: string } | null {
+  if (slug.startsWith('hizli-') || slug === 'acil-baski') {
+    return { label: 'Acil', bg: '#DC2626', color: '#fff' }
+  }
+  if (slug.startsWith('yaldizli-') || slug.includes('yaldiz')) {
+    return { label: 'Yaldızlı', bg: '#F59E0B', color: '#fff' }
   }
   return null
 }
 
 export default function Navbar() {
   const itemCount = useCartStore(s => s.items.length)
+  const { favorites } = useFavorites()
+  const favCount = favorites.length
   const { theme, toggle } = useTheme()
   const router = useRouter()
 
+  const [categories, setCategories] = useState<Category[]>([])
+  const [allCategories, setAllCategories] = useState<Category[]>([])
+  const [products, setProducts] = useState<Product[]>([])
+
   const [search, setSearch] = useState('')
-  const [searchOpen, setSearchOpen] = useState(false)
   const [megaOpen, setMegaOpen] = useState<string | null>(null)
   const [kurumsalOpen, setKurumsalOpen] = useState(false)
-  const [products, setProducts] = useState<any[]>([])
+  const [mobileMenu, setMobileMenu] = useState(false)
   const kurumsalRef = useRef<HTMLDivElement>(null)
-  const megaRef = useRef<HTMLDivElement>(null)
   const megaTimer = useRef<NodeJS.Timeout>()
 
   useEffect(() => {
-    productApi.list().then(r => setProducts(r.data.data || [])).catch(() => {})
+    Promise.all([
+      api.get('/api/catalog/categories/tree'),
+      api.get('/api/catalog/products'),
+    ]).then(([catRes, prodRes]) => {
+      const raw: Category[] = catRes.data.data || []
+
+      // Tree veya flat — her ikisini de düzleştir
+      const flat: Category[] = []
+      raw.forEach((cat) => {
+        flat.push({ ...cat, parentId: cat.parentId ?? null })
+        if (cat.children && cat.children.length > 0) {
+          cat.children.forEach((child) => {
+            flat.push({ ...child, parentId: cat.id })
+          })
+        }
+      })
+
+      const mainCats = flat.filter((c) => !c.parentId)
+      setCategories(mainCats)
+      setAllCategories(flat)
+      setProducts(prodRes.data.data || [])
+
+      // Debug — kaç adet ana + alt kategori var
+      console.log('[Navbar] Ana kategori:', mainCats.length, '| Toplam:', flat.length)
+    }).catch(err => console.error('Navbar veri yüklenemedi:', err))
   }, [])
 
   useEffect(() => {
@@ -65,7 +122,6 @@ export default function Navbar() {
     if (!search.trim()) return
     router.push(`/urunler?q=${encodeURIComponent(search.trim())}`)
     setSearch('')
-    setSearchOpen(false)
   }
 
   const openMega = (slug: string) => {
@@ -79,97 +135,165 @@ export default function Navbar() {
 
   const keepMega = () => clearTimeout(megaTimer.current)
 
-  // Seçili kategorinin ürünleri
-  const megaProducts = megaOpen
-    ? products.filter(p => kategoriFromSlug(p.slug) === megaOpen)
+  const activeKat = categories.find(k => k.slug === megaOpen)
+
+  const subCats = activeKat
+    ? allCategories
+        .filter(c => c.parentId === activeKat.id)
+        .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
     : []
 
-  const activeKat = KATEGORILER.find(k => k.slug === megaOpen)
+  const subSlugs = subCats.map(c => c.slug)
+  const megaProducts = megaOpen
+    ? products.filter(p => p.categorySlug === megaOpen || subSlugs.includes(p.categorySlug))
+    : []
+
+  const featuredCards = megaProducts.filter(p => p.featured).slice(0, 8)
+  const cardsList = featuredCards.length >= 4 ? featuredCards : megaProducts.slice(0, 8)
+
+  // ÖNEMLİ: mega menü hover olduğunda her zaman açılsın — boş bile olsa
+  const showMega = !!megaOpen
 
   return (
     <>
-      <nav className="sticky top-0 z-50 backdrop-blur-md"
-        style={{ borderBottom: '1px solid var(--border)' }}>
-        <div style={{ background: 'color-mix(in srgb, var(--bg-primary) 95%, transparent)' }}
-          className="absolute inset-0" />
+      <header className="sticky top-0 z-50">
 
-        <div className="relative max-w-7xl mx-auto px-6 h-[62px] flex items-center gap-4">
-
-          {/* Logo */}
-          <Link href="/" className="flex items-center gap-2.5 flex-shrink-0">
-            <div className="w-8 h-8 rounded-[10px] bg-[#F4821F] flex items-center justify-center shadow-sm">
-              <Printer size={15} className="text-white" />
+        {/* ROW 1 */}
+        <div className="hidden md:block"
+          style={{ background: 'var(--bg-secondary)', borderBottom: '1px solid var(--border)' }}>
+          <div className="max-w-7xl mx-auto px-6 h-9 flex items-center justify-between gap-4">
+            <div className="flex items-center gap-5 flex-wrap">
+              {topUtility.map(l => (
+                <Link key={l.href} href={l.href}
+                  className="flex items-center gap-1 text-[11px] font-medium transition-colors hover:text-[#F4821F] whitespace-nowrap"
+                  style={{ color: 'var(--text-secondary)' }}>
+                  <l.icon size={11} />
+                  {l.label}
+                </Link>
+              ))}
             </div>
-            <span className="text-[15px] font-bold tracking-[-0.5px]"
-              style={{ color: 'var(--text-primary)', fontFamily: 'Georgia, serif' }}>
-              Baskı<span className="text-[#F4821F]">Pro</span>
-            </span>
-          </Link>
-
-          {/* Arama */}
-          <form onSubmit={handleSearch} className="flex-1 max-w-[380px]">
-            <div className="relative">
-              <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none"
-                style={{ color: 'var(--text-muted)' }} />
-              <input
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-                placeholder="Ne bastırmak istiyorsunuz?"
-                className="w-full pl-9 pr-4 py-2.5 text-[13px] rounded-xl outline-none transition-all"
-                style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
-                onFocus={() => setSearchOpen(true)}
-                onBlur={() => setTimeout(() => setSearchOpen(false), 150)}
-              />
-              {searchOpen && search.length === 0 && (
-                <div className="absolute top-full left-0 right-0 mt-1.5 rounded-xl overflow-hidden shadow-lg z-50"
-                  style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
-                  <div className="px-3 py-2" style={{ borderBottom: '1px solid var(--border)' }}>
-                    <p className="text-[10px] font-bold uppercase tracking-[1px]"
-                      style={{ color: 'var(--text-muted)' }}>Popüler kategoriler</p>
-                  </div>
-                  {KATEGORILER.map(k => (
-                    <Link key={k.slug} href={`/urunler`}
-                      className="flex items-center gap-2.5 px-3 py-2.5 transition-colors hover:bg-[#F4821F]/5"
-                      onMouseDown={e => e.preventDefault()}>
-                      <span className="text-[14px]">{k.icon}</span>
-                      <span className="text-[13px]" style={{ color: 'var(--text-secondary)' }}>{k.label}</span>
-                    </Link>
-                  ))}
-                </div>
-              )}
+            <div className="flex items-center gap-3 flex-shrink-0">
+              <button onClick={toggle}
+                title={theme === 'dark' ? 'Açık tema' : 'Koyu tema'}
+                className="flex items-center justify-center w-6 h-6 rounded transition-colors hover:bg-orange-500/10"
+                style={{ color: 'var(--text-muted)' }}>
+                {theme === 'dark' ? <Sun size={12} /> : <Moon size={12} />}
+              </button>
             </div>
-          </form>
+          </div>
+        </div>
 
-          {/* Kategori linkleri — mega menü */}
-          <div className="hidden lg:flex items-center gap-1 flex-shrink-0">
-            {KATEGORILER.map(k => (
-              <div key={k.slug}
-                onMouseEnter={() => openMega(k.slug)}
-                onMouseLeave={closeMega}
-                className="relative">
-                <button
-                  className="flex items-center gap-1 text-[12px] font-medium px-2.5 py-1.5 rounded-lg transition-colors"
-                  style={{
-                    color: megaOpen === k.slug ? '#F4821F' : 'var(--text-secondary)',
-                    background: megaOpen === k.slug ? 'rgba(244,130,31,0.08)' : 'transparent'
-                  }}>
-                  {k.label}
-                  <ChevronDown size={11} className={`transition-transform duration-200 ${megaOpen === k.slug ? 'rotate-180' : ''}`} />
+        {/* ROW 2 */}
+        <div style={{ background: 'var(--bg-primary)', borderBottom: '1px solid var(--border)' }}>
+          <div className="max-w-7xl mx-auto px-6 h-[72px] flex items-center gap-6">
+            <Link href="/" className="flex items-center flex-shrink-0">
+              <Logo className="h-9" />
+            </Link>
+            <form onSubmit={handleSearch} className="flex-1 max-w-[640px]">
+              <div className="relative">
+                <input
+                  value={search}
+                  onChange={e => setSearch(e.target.value)}
+                  placeholder="Ne bastırmak istiyorsunuz?"
+                  className="w-full pl-4 pr-12 py-3 text-[13px] rounded-xl outline-none transition-all"
+                  style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
+                />
+                <button type="submit"
+                  className="absolute right-1.5 top-1/2 -translate-y-1/2 w-9 h-9 rounded-lg flex items-center justify-center transition-colors"
+                  style={{ background: '#F4821F', color: 'white' }}>
+                  <Search size={14} />
                 </button>
               </div>
-            ))}
+            </form>
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <Link href="/hesabim"
+                className="hidden md:flex items-center gap-2 px-3 py-2 rounded-xl transition-colors"
+                style={{ border: '1px solid var(--border)', background: 'var(--surface)' }}>
+                <User size={15} style={{ color: 'var(--text-secondary)' }} />
+                <div className="flex flex-col leading-tight">
+                  <span className="text-[11px] font-bold whitespace-nowrap" style={{ color: 'var(--text-primary)' }}>Üye Giriş</span>
+                  <span className="text-[10px] whitespace-nowrap" style={{ color: 'var(--text-muted)' }}>veya Üye Ol</span>
+                </div>
+              </Link>
+              <Link href="/favorilerim"
+                title={`${favCount} favori ürün`}
+                className="relative w-11 h-11 rounded-xl flex items-center justify-center transition-colors"
+                style={{ border: '1px solid var(--border)', background: 'var(--surface)' }}>
+                <Heart size={15} fill={favCount > 0 ? '#F4821F' : 'none'}
+                  style={{ color: favCount > 0 ? '#F4821F' : 'var(--text-secondary)' }} />
+                {favCount > 0 && (
+                  <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 bg-[#F4821F] text-white text-[10px] font-bold rounded-full flex items-center justify-center">
+                    {favCount}
+                  </span>
+                )}
+              </Link>
+              <Link href="/sepet"
+                className="hidden md:flex items-center gap-2 px-3 py-2 rounded-xl transition-colors"
+                style={{ border: '1px solid var(--border)', background: 'var(--surface)' }}>
+                <div className="relative">
+                  <ShoppingCart size={15} style={{ color: 'var(--text-secondary)' }} />
+                  {itemCount > 0 && (
+                    <span className="absolute -top-2 -right-2 min-w-[16px] h-[16px] px-1 bg-[#F4821F] text-white text-[9px] font-bold rounded-full flex items-center justify-center">
+                      {itemCount}
+                    </span>
+                  )}
+                </div>
+                <span className="text-[12px] font-bold whitespace-nowrap" style={{ color: 'var(--text-primary)' }}>Sepetim</span>
+              </Link>
+              <button onClick={() => setMobileMenu(o => !o)}
+                className="md:hidden w-10 h-10 rounded-xl flex items-center justify-center"
+                style={{ border: '1px solid var(--border)' }}>
+                {mobileMenu ? <X size={16} /> : <Menu size={16} />}
+              </button>
+            </div>
+          </div>
+        </div>
 
-            {/* Kurumsal */}
-            <div ref={kurumsalRef} className="relative">
-              <button
-                onClick={() => setKurumsalOpen(o => !o)}
-                className="flex items-center gap-1 text-[12px] font-medium px-2.5 py-1.5 rounded-lg transition-colors"
+        {/* ROW 3 — KATEGORİ BAR */}
+        <div className="hidden lg:block relative"
+          style={{ background: 'var(--bg-primary)', borderBottom: '1px solid var(--border)' }}>
+          <div className="max-w-7xl mx-auto px-4 h-12 flex items-center gap-0.5">
+            {categories.map((k, idx) => {
+              const isActive = megaOpen === k.slug
+              return (
+                <div key={k.slug}
+                  onMouseEnter={() => openMega(k.slug)}
+                  onMouseLeave={closeMega}
+                  className="relative h-full flex items-center">
+                  {idx > 0 && !isActive && (
+                    <div className="w-px h-4 mx-0.5" style={{ background: 'var(--border)' }} />
+                  )}
+                  <Link href={`/katalog/${k.slug}`}
+                    className="relative flex items-center gap-1 text-[11.5px] font-bold px-3 py-1.5 rounded-md transition-all whitespace-nowrap"
+                    style={{
+                      color: isActive ? '#fff' : 'var(--text-primary)',
+                      background: isActive ? '#F4821F' : 'transparent',
+                      boxShadow: isActive ? '0 2px 6px rgba(244,130,31,0.35)' : 'none',
+                    }}>
+                    <span className="text-[13px]">{k.icon}</span>
+                    {k.name}
+                    {isActive && (
+                      <span className="absolute left-1/2 -translate-x-1/2 -bottom-1.5 w-0 h-0"
+                        style={{
+                          borderLeft: '6px solid transparent',
+                          borderRight: '6px solid transparent',
+                          borderTop: '6px solid #F4821F',
+                        }} />
+                    )}
+                  </Link>
+                </div>
+              )
+            })}
+            <div className="flex-1" />
+            <div ref={kurumsalRef} className="relative flex-shrink-0">
+              <button onClick={() => setKurumsalOpen(o => !o)}
+                className="flex items-center gap-1 text-[11.5px] font-medium px-2.5 py-1.5 rounded-lg transition-colors whitespace-nowrap"
                 style={{ color: 'var(--text-secondary)' }}>
                 Kurumsal
                 <ChevronDown size={11} className={`transition-transform duration-200 ${kurumsalOpen ? 'rotate-180' : ''}`} />
               </button>
               {kurumsalOpen && (
-                <div className="absolute top-full left-0 mt-2 w-[180px] rounded-xl overflow-hidden shadow-lg z-50"
+                <div className="absolute top-full right-0 mt-1 w-[180px] rounded-xl overflow-hidden shadow-lg z-50"
                   style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
                   {kurumsal.map(l => (
                     <Link key={l.href} href={l.href}
@@ -183,113 +307,168 @@ export default function Navbar() {
               )}
             </div>
           </div>
-
-          {/* Sağ aksiyonlar */}
-          <div className="flex items-center gap-2 ml-auto flex-shrink-0">
-            <button onClick={toggle}
-              className="w-8 h-8 rounded-lg flex items-center justify-center transition-all"
-              style={{ border: '1px solid var(--border)', color: 'var(--text-secondary)', background: 'var(--surface)' }}>
-              {theme === 'dark' ? <Sun size={13} className="text-[#F4821F]" /> : <Moon size={13} />}
-            </button>
-            <Link href="/hesabim"
-              className="w-8 h-8 rounded-lg flex items-center justify-center transition-colors"
-              style={{ border: '1px solid var(--border)', color: 'var(--text-secondary)', background: 'var(--surface)' }}>
-              <User size={13} />
-            </Link>
-            <Link href="/sepet"
-              className="relative w-8 h-8 rounded-lg flex items-center justify-center transition-colors"
-              style={{ border: '1px solid var(--border)', color: 'var(--text-secondary)', background: 'var(--surface)' }}>
-              <ShoppingCart size={13} />
-              {itemCount > 0 && (
-                <span className="absolute -top-1 -right-1 w-4 h-4 bg-[#F4821F] text-white text-[9px] font-bold rounded-full flex items-center justify-center">
-                  {itemCount}
-                </span>
-              )}
-            </Link>
-            <Link href="/giris"
-              className="text-[12px] font-medium px-3 py-1.5 rounded-lg ml-1 transition-colors"
-              style={{ border: '1px solid var(--border)', color: 'var(--text-secondary)', background: 'var(--surface)' }}>
-              Giriş
-            </Link>
-            <Link href="/siparis"
-              className="text-[12px] font-bold bg-[#F4821F] text-white px-4 py-1.5 rounded-lg hover:bg-[#e07010] transition-colors">
-              Sipariş ver
-            </Link>
-          </div>
         </div>
-      </nav>
 
-      {/* MEGA MENÜ — navbar dışında tam genişlik */}
-      {megaOpen && (
+        {/* MOBİL MENÜ */}
+        {mobileMenu && (
+          <div className="md:hidden absolute top-full left-0 right-0 shadow-lg z-50"
+            style={{ background: 'var(--bg-card)', borderTop: '1px solid var(--border)' }}>
+            <div className="p-4 space-y-3">
+              <Link href="/hesabim" onClick={() => setMobileMenu(false)}
+                className="flex items-center gap-2 px-3 py-2.5 rounded-xl"
+                style={{ background: 'var(--bg-secondary)' }}>
+                <User size={14} />
+                <span className="text-[13px] font-bold">Üye Giriş / Üye Ol</span>
+              </Link>
+              <Link href="/sepet" onClick={() => setMobileMenu(false)}
+                className="flex items-center justify-between px-3 py-2.5 rounded-xl"
+                style={{ background: 'var(--bg-secondary)' }}>
+                <span className="flex items-center gap-2">
+                  <ShoppingCart size={14} /> <span className="text-[13px] font-bold">Sepetim</span>
+                </span>
+                {itemCount > 0 && (
+                  <span className="px-2 py-0.5 rounded-full bg-[#F4821F] text-white text-[10px] font-bold">{itemCount}</span>
+                )}
+              </Link>
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-[1px] mb-2 mt-3" style={{ color: 'var(--text-muted)' }}>
+                  Kategoriler
+                </p>
+                {categories.map(k => (
+                  <Link key={k.slug} href={`/katalog/${k.slug}`}
+                    onClick={() => setMobileMenu(false)}
+                    className="flex items-center gap-2 px-3 py-2 rounded-lg text-[13px]"
+                    style={{ color: 'var(--text-secondary)' }}>
+                    {k.icon} {k.name}
+                  </Link>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+      </header>
+
+      {/* ════════════════════ MEGA MENÜ ════════════════════ */}
+      {showMega && (
         <div
-          className="fixed left-0 right-0 z-40 shadow-xl"
+          className="fixed left-0 right-0 z-40 shadow-2xl"
           style={{
-            top: 62,
+            top: 'calc(36px + 72px + 48px)',
             background: 'var(--bg-card)',
+            borderTop: '1px solid var(--border)',
             borderBottom: '1px solid var(--border)',
           }}
           onMouseEnter={keepMega}
           onMouseLeave={closeMega}
         >
-          <div className="max-w-7xl mx-auto px-6 py-6 flex gap-8">
+          <div className="max-w-7xl mx-auto px-6 py-7">
 
-            {/* Sol — kategori listesi */}
-            <div className="w-[220px] flex-shrink-0" style={{ borderRight: '1px solid var(--border)' }}>
-              <p className="text-[10px] font-bold uppercase tracking-[1.5px] mb-3"
-                style={{ color: 'var(--text-muted)' }}>
-                {activeKat?.icon} {activeKat?.label}
-              </p>
-              <div className="space-y-0.5 pr-4">
-                {megaProducts.map(p => (
-                  <Link key={p.id}
-                    href={`/siparis?urun=${p.slug}`}
-                    className="flex items-center justify-between px-3 py-2 rounded-lg text-[13px] transition-colors hover:bg-[#F4821F]/8 hover:text-[#F4821F] group"
-                    style={{ color: 'var(--text-secondary)' }}
+            <h3 className="text-[24px] font-black tracking-[-0.5px] mb-5"
+              style={{ color: 'var(--text-primary)' }}>
+              {activeKat?.icon} {activeKat?.name}
+            </h3>
+
+            {/* DURUM 1: Alt kategori VAR — solda 2 kolon liste + sağda 4 kolon kart */}
+            {subCats.length > 0 && (
+              <div className="flex gap-10">
+                <div className="flex-1 min-w-0">
+                  <div className="grid grid-cols-2 gap-x-8">
+                    {subCats.map(sub => {
+                      const badge = getBadge(sub.slug)
+                      return (
+                        <Link key={sub.slug}
+                          href={`/katalog/${sub.slug}`}
+                          onClick={() => setMegaOpen(null)}
+                          className="flex items-center justify-between py-2.5 text-[14px] font-medium border-b transition-colors hover:text-[#F4821F]"
+                          style={{ color: 'var(--text-primary)', borderColor: 'var(--border)' }}>
+                          <span>{sub.name}</span>
+                          {badge && (
+                            <span className="px-2 py-0.5 rounded text-[10px] font-bold flex-shrink-0 ml-2"
+                              style={{ background: badge.bg, color: badge.color }}>
+                              {badge.label}
+                            </span>
+                          )}
+                        </Link>
+                      )
+                    })}
+                  </div>
+                  <Link href={`/katalog/${megaOpen}`}
                     onClick={() => setMegaOpen(null)}
-                  >
-                    <span>{p.name}</span>
+                    className="inline-flex items-center gap-1.5 mt-5 text-[13px] font-bold transition-colors hover:text-[#F4821F]"
+                    style={{ color: 'var(--text-primary)' }}>
+                    Tüm Ürünler <ArrowRight size={13} />
                   </Link>
-                ))}
-                <Link href="/urunler"
-                  className="flex items-center px-3 py-2 text-[12px] font-semibold text-[#F4821F] hover:underline mt-2"
-                  onClick={() => setMegaOpen(null)}>
-                  Tüm ürünler →
+                </div>
+
+                {cardsList.length > 0 && (
+                  <div className="w-[560px] flex-shrink-0">
+                    <div className="grid grid-cols-4 gap-3">
+                      {cardsList.slice(0, 8).map(p => (
+                        <Link key={p.slug} href={`/urun/${p.slug}`}
+                          onClick={() => setMegaOpen(null)}
+                          className="group flex flex-col rounded-xl overflow-hidden transition-all hover:shadow-md hover:-translate-y-0.5"
+                          style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
+                          <div className="aspect-square overflow-hidden flex items-center justify-center"
+                            style={{ background: 'var(--bg-secondary)' }}>
+                            {p.mainImageUrl ? (
+                              <img src={p.mainImageUrl} alt={p.name}
+                                className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                                onError={e => (e.currentTarget.style.display = 'none')} />
+                            ) : (
+                              <Package size={28} className="opacity-30" />
+                            )}
+                          </div>
+                          <p className="text-[11px] font-bold leading-tight text-center px-1.5 py-2 line-clamp-2"
+                            style={{ color: 'var(--text-primary)' }}>
+                            {p.name}
+                          </p>
+                        </Link>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* DURUM 2: Alt kategori YOK ama ürün VAR */}
+            {subCats.length === 0 && cardsList.length > 0 && (
+              <div className="flex gap-10">
+                <div className="flex-1">
+                  <div className="grid grid-cols-3 gap-x-6 gap-y-1.5 mb-5">
+                    {megaProducts.slice(0, 12).map(p => (
+                      <Link key={p.slug} href={`/urun/${p.slug}`}
+                        onClick={() => setMegaOpen(null)}
+                        className="text-[13px] py-1 transition-colors hover:text-[#F4821F]"
+                        style={{ color: 'var(--text-secondary)' }}>
+                        {p.name}
+                      </Link>
+                    ))}
+                  </div>
+                  <Link href={`/katalog/${megaOpen}`}
+                    onClick={() => setMegaOpen(null)}
+                    className="inline-flex items-center gap-1.5 text-[13px] font-bold transition-colors hover:text-[#F4821F]"
+                    style={{ color: 'var(--text-primary)' }}>
+                    Tüm Ürünler <ArrowRight size={13} />
+                  </Link>
+                </div>
+              </div>
+            )}
+
+            {/* DURUM 3: HİÇ İÇERİK YOK — uyarı göster */}
+            {subCats.length === 0 && cardsList.length === 0 && (
+              <div className="py-12 text-center">
+                <Package size={32} className="mx-auto mb-3 opacity-40" />
+                <p className="text-[14px] font-medium" style={{ color: 'var(--text-secondary)' }}>
+                  Bu kategoride henüz ürün veya alt kategori yok.
+                </p>
+                <Link href={`/katalog/${megaOpen}`}
+                  onClick={() => setMegaOpen(null)}
+                  className="inline-flex items-center gap-1.5 mt-3 text-[13px] font-bold transition-colors hover:text-[#F4821F]"
+                  style={{ color: '#F4821F' }}>
+                  Kategori sayfasını ziyaret et <ArrowRight size={13} />
                 </Link>
               </div>
-            </div>
-
-            {/* Sağ — ürün grid kartlar */}
-            <div className="flex-1">
-              <div className="grid grid-cols-4 gap-3">
-                {megaProducts.slice(0, 8).map(p => (
-                  <Link key={p.id}
-                    href={`/siparis?urun=${p.slug}`}
-                    className="group flex flex-col items-center text-center p-3 rounded-xl transition-all hover:shadow-md"
-                    style={{ border: '1px solid var(--border)', background: 'var(--bg-secondary)' }}
-                    onClick={() => setMegaOpen(null)}
-                  >
-                    {/* Ürün ikonu */}
-                   <div className="w-16 h-16 rounded-lg overflow-hidden mb-2 flex items-center justify-center"
-  style={{ background: 'var(--bg-card)' }}>
-  {p.imageUrl
-    ? <img src={p.imageUrl} alt={p.name} className="w-full h-full object-cover" />
-    : <span className="text-[32px]">{activeKat?.icon}</span>
-  }
-</div>
-                    <p className="text-[12px] font-medium leading-tight"
-                      style={{ color: 'var(--text-primary)' }}>
-                      {p.name}
-                    </p>
-                    <p className="text-[10px] mt-0.5" style={{ color: 'var(--text-muted)' }}>
-                      Min. {p.minOrder} {p.unit}
-                    </p>
-                    <span className="mt-2 text-[10px] font-semibold text-[#F4821F] opacity-0 group-hover:opacity-100 transition-opacity">
-                      Sipariş ver →
-                    </span>
-                  </Link>
-                ))}
-              </div>
-            </div>
+            )}
           </div>
         </div>
       )}

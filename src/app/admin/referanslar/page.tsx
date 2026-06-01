@@ -9,8 +9,7 @@ import { Plus, Pencil, Trash2, ToggleLeft, ToggleRight, Upload, X, Star, StarOff
 const CATEGORIES = ['Zincir Market', 'İçecek & FMCG', 'Restoran', 'Otel & Turizm', 'Etkinlik & Fuar', 'Diğer']
 const COLORS = ['#E31E24','#003087','#E8000D','#F40009','#D62300','#006491','#F26522','#012169','#8A1538','#1B4F72','#F4821F','#1D9E75','#534AB7']
 
-const emptyForm = { name: '', sector: '', category: CATEGORIES[0], description: '', color: '#F4821F', abbr: '', featured: false, active: true, displayOrder: 0, logoUrl: '' }
-
+const emptyForm = { name: '', sector: '', category: CATEGORIES[0], description: '', color: '#F4821F', abbr: '', featured: false, active: true, showText: true, displayOrder: 0, logoUrl: '' }
 // Dosya adından marka adı çıkar: "migros-logo.png" → "Migros"
 const nameFromFile = (filename: string) =>
   filename.replace(/\.[^.]+$/, '').replace(/[-_]/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
@@ -48,17 +47,17 @@ export default function ReferanslarPage() {
     setLogoPreview('')
     setShowForm(true)
   }
-
-  const openEdit = (ref: any) => {
+const openEdit = (ref: any) => {
     setEditing(ref)
     setForm({
       name: ref.name, sector: ref.sector, category: ref.category,
       description: ref.description || '', color: ref.color || '#F4821F',
       abbr: ref.abbr || '', featured: ref.featured, active: ref.active,
+      showText: ref.showText !== false,
       displayOrder: ref.displayOrder || 0, logoUrl: ref.logoUrl || '',
     })
     setLogoFile(null)
-    setLogoPreview(ref.logoBase64 || ref.logoUrl || '')
+    setLogoPreview(ref.logoUrl || '')
     setShowForm(true)
   }
 
@@ -113,7 +112,7 @@ export default function ReferanslarPage() {
     load()
   }
 
-  const handleSave = async () => {
+const handleSave = async () => {
     if (!form.name || !form.sector || !form.category) {
       toast.error('İsim, sektör ve kategori zorunlu')
       return
@@ -129,6 +128,7 @@ export default function ReferanslarPage() {
       if (form.abbr) fd.append('abbr', form.abbr)
       fd.append('featured', String(form.featured))
       fd.append('active', String(form.active))
+      fd.append('showText', String(form.showText))
       fd.append('displayOrder', String(form.displayOrder ?? 0))
       if (logoFile) fd.append('logo', logoFile)
       if (form.logoUrl) fd.append('logoUrl', form.logoUrl)

@@ -1,4 +1,4 @@
-import Navbar from '@/components/layout/Navbar'
+﻿import Navbar from '@/components/layout/Navbar'
 import Footer from '@/components/layout/Footer'
 
 const milestones = [
@@ -6,7 +6,7 @@ const milestones = [
   { year: '2013', title: 'İlk Büyük Makine', desc: 'HP Latex 700W ile büyük format baskıya girdik.' },
   { year: '2016', title: 'Fabrika Genişlemesi', desc: '1200 m² yeni fabrikamıza taşındık.' },
   { year: '2019', title: 'Kurumsal Müşteriler', desc: 'Migros ve Efes Pilsen ile uzun vadeli anlaşmalar.' },
-  { year: '2022', title: 'Online Platform', desc: 'BaskıPro online sipariş platformunu hayata geçirdik.' },
+  { year: '2022', title: 'Online Platform', desc: 'baskıurunleri.com online sipariş platformunu hayata geçirdik.' },
   { year: '2024', title: 'Bugün', desc: '12.000+ müşteri, 81 ilde teslimat.' },
 ]
 

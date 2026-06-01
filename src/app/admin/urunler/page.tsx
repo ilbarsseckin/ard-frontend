@@ -7,7 +7,7 @@ import api from '@/lib/api'
 import toast from 'react-hot-toast'
 import {
   Upload, TrendingUp, ToggleLeft, ToggleRight, Download,
-  Save, Search, RefreshCw, Edit2, Trash2, Loader2
+  Save, Search, RefreshCw, Edit2, Trash2, Loader2, Star
 } from 'lucide-react'
 
 const KATEGORILER = [
@@ -28,11 +28,22 @@ const PRICING_MODELS = [
 
 const UNITS = ['m2', 'adet', 'paket', 'tabaka']
 
+interface PriceTier {
+  minQty: number | null
+  maxQty: number | null
+  price: number
+}
+
 interface Product {
   id: string; name: string; slug: string
   pricingModel: string; unit: string
   minOrder: number; description: string; isActive: boolean
   imageUrl?: string
+  basePrice?: number
+  priceTiers?: PriceTier[]
+  featured?: boolean
+  badge?: string
+  originalPrice?: number
 }
 
 interface UrunForm {
@@ -40,13 +51,21 @@ interface UrunForm {
   pricingModel: string; unit: string
   minOrder: number; description: string; basePrice: number
   imageUrl: string
+  priceTiers: PriceTier[]
+  featured: boolean
+  badge: string
+  originalPrice: number
 }
 
 const EMPTY: UrunForm = {
   name: '', slug: '', kategoriSlug: 'buyuk-format',
   pricingModel: 'AREA_BASED', unit: 'm2',
   minOrder: 1, description: '', basePrice: 0, imageUrl: '',
+  priceTiers: [],
+  featured: false, badge: '', originalPrice: 0,
 }
+
+const isTieredModel = (m: string) => m === 'TIERED_QUANTITY' || m === 'PACKAGE'
 
 function slugify(str: string) {
   return str.toLowerCase()
@@ -113,17 +132,42 @@ function UrunlerContent() {
   const resetForm = () => { setForm(EMPTY); setEditId(null) }
 
   const handleSave = async () => {
-    if (!form.name || !form.slug || form.basePrice <= 0) {
-      toast.error('Ad, slug ve fiyat zorunlu')
+    if (!form.name || !form.slug) {
+      toast.error('Ad ve slug zorunlu')
       return
     }
+
+    const tiered = isTieredModel(form.pricingModel)
+    let body: any
+
+    if (tiered) {
+      if (form.priceTiers.length === 0) {
+        toast.error('En az bir fiyat baremi eklemelisiniz')
+        return
+      }
+      const invalid = form.priceTiers.some(t =>
+        t.minQty == null || t.minQty < 1 || !t.price || t.price <= 0
+      )
+      if (invalid) {
+        toast.error('Tüm baremlerde min adet ve fiyat dolu olmalı')
+        return
+      }
+      body = { ...form, priceTiers: form.priceTiers, basePrice: undefined }
+    } else {
+      if (form.basePrice <= 0) {
+        toast.error('Fiyat zorunlu')
+        return
+      }
+      body = { ...form, basePrice: form.basePrice, priceTiers: undefined }
+    }
+
     setFormLoading(true)
     try {
       if (editId) {
-        await api.put(`/api/admin/products/${editId}`, form)
+        await api.put(`/api/admin/products/${editId}`, body)
         toast.success('Ürün güncellendi')
       } else {
-        await api.post('/api/admin/products', form)
+        await api.post('/api/admin/products', body)
         toast.success('Ürün eklendi')
       }
       resetForm()
@@ -140,7 +184,16 @@ function UrunlerContent() {
       name: p.name, slug: p.slug, kategoriSlug: kat,
       pricingModel: p.pricingModel, unit: p.unit,
       minOrder: p.minOrder, description: p.description,
-      basePrice: 0, imageUrl: p.imageUrl || '',
+      basePrice: Number(p.basePrice || 0),
+      imageUrl: p.imageUrl || '',
+      priceTiers: (p.priceTiers || []).map(t => ({
+        minQty: t.minQty,
+        maxQty: t.maxQty,
+        price: Number(t.price),
+      })),
+      featured: p.featured || false,
+      badge: p.badge || '',
+      originalPrice: Number(p.originalPrice || 0),
     })
     setEditId(p.id)
     setTab('ekle')
@@ -335,25 +388,30 @@ function UrunlerContent() {
                       </div>
 
                       <div className="rounded-xl overflow-hidden" style={{ border: '1px solid var(--border)' }}>
-                        <div className="grid grid-cols-[48px_1fr_110px_90px_70px_90px_90px] px-4 py-2.5 text-[10px] font-bold uppercase tracking-[0.8px]"
+                        <div className="grid grid-cols-[48px_1fr_110px_90px_70px_110px_90px] px-4 py-2.5 text-[10px] font-bold uppercase tracking-[0.8px]"
                           style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border)', color: 'var(--text-muted)' }}>
                           <span>Resim</span>
                           <span>Ürün adı / Slug</span>
                           <span>Fiyatlandırma</span>
                           <span>Birim</span>
                           <span>Min.</span>
-                          <span>Durum</span>
+                          <span>Rozet / Durum</span>
                           <span className="text-right">İşlem</span>
                         </div>
 
                         <div className="divide-y" style={{ borderColor: 'var(--border)' }}>
                           {g.items.map(p => (
                             <div key={p.id}
-                              className="grid grid-cols-[48px_1fr_110px_90px_70px_90px_90px] items-center px-4 py-3 transition-colors"
+                              className="grid grid-cols-[48px_1fr_110px_90px_70px_110px_90px] items-center px-4 py-3 transition-colors"
                               style={{ background: 'var(--bg-card)' }}>
 
                               {/* Resim */}
-                              <div>
+                              <div className="relative">
+                                {p.featured && (
+                                  <span className="absolute -top-1 -left-1 z-10">
+                                    <Star size={12} className="text-[#F4821F] fill-[#F4821F]" />
+                                  </span>
+                                )}
                                 {p.imageUrl
                                   ? <img src={p.imageUrl} alt={p.name}
                                       className="w-9 h-9 rounded-lg object-cover"
@@ -387,13 +445,19 @@ function UrunlerContent() {
                               <span className="text-[11px]" style={{ color: 'var(--text-secondary)' }}>{p.unit}</span>
                               <span className="text-[11px]" style={{ color: 'var(--text-secondary)' }}>{p.minOrder}</span>
 
-                              <div>
+                              <div className="flex flex-col gap-1">
+                                {p.badge && (
+                                  <span className="text-[9px] font-black uppercase tracking-[0.5px] px-1.5 py-0.5 rounded text-white inline-block w-fit"
+                                    style={{ background: 'linear-gradient(135deg, #ef4444, #ec4899)' }}>
+                                    ⚡ {p.badge}
+                                  </span>
+                                )}
                                 {p.isActive
-                                  ? <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold"
+                                  ? <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold inline-block w-fit"
                                       style={{ background: 'rgba(16,185,129,0.1)', color: '#10B981', border: '1px solid rgba(16,185,129,0.2)' }}>
                                       Aktif
                                     </span>
-                                  : <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold"
+                                  : <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold inline-block w-fit"
                                       style={{ background: 'rgba(107,114,128,0.1)', color: '#6B7280', border: '1px solid rgba(107,114,128,0.2)' }}>
                                       Pasif
                                     </span>
@@ -524,15 +588,141 @@ function UrunlerContent() {
                       style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', color: 'var(--text-primary)' }} />
                   </div>
 
-                  {/* Baz fiyat */}
-                  <div>
-                    <label className="block text-[11px] font-bold uppercase tracking-[1px] mb-2"
-                      style={{ color: 'var(--text-muted)' }}>Baz fiyat (₺ / {form.unit}) *</label>
-                    <input type="number" min="0" step="0.01" value={form.basePrice || ''}
-                      onChange={e => setForm(f => ({...f, basePrice: +e.target.value}))}
-                      placeholder="185.00"
-                      className="w-full px-3.5 py-2.5 text-[13px] rounded-lg outline-none"
-                      style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', color: 'var(--text-primary)' }} />
+                  {/* Fiyat — modele göre tek input ya da tier tablosu */}
+                  {!isTieredModel(form.pricingModel) ? (
+                    <div>
+                      <label className="block text-[11px] font-bold uppercase tracking-[1px] mb-2"
+                        style={{ color: 'var(--text-muted)' }}>
+                        Baz fiyat ($ USD / {form.unit}) *
+                      </label>
+                      <input type="number" min="0" step="0.01" value={form.basePrice || ''}
+                        onChange={e => setForm(f => ({...f, basePrice: +e.target.value}))}
+                        placeholder="3.20"
+                        className="w-full px-3.5 py-2.5 text-[13px] rounded-lg outline-none"
+                        style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', color: 'var(--text-primary)' }} />
+                      <p className="text-[11px] mt-1.5" style={{ color: 'var(--text-muted)' }}>
+                        Fiyat USD. Müşteriye Ayarlar'daki kur ile TL gösterilir.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="col-span-2">
+                      <label className="block text-[11px] font-bold uppercase tracking-[1px] mb-2"
+                        style={{ color: 'var(--text-muted)' }}>
+                        Fiyat Baremleri ($ USD) *
+                      </label>
+                      <div className="space-y-2">
+                        {form.priceTiers.length === 0 && (
+                          <div className="text-[12px] py-3 px-3 rounded-lg"
+                            style={{ background: 'var(--bg-secondary)', color: 'var(--text-muted)' }}>
+                            Henüz barem yok. Aşağıdaki butondan ekle.
+                          </div>
+                        )}
+                        {form.priceTiers.map((t, i) => (
+                          <div key={i} className="grid grid-cols-[1fr_1fr_1.2fr_auto] gap-2 items-center">
+                            <input type="number" min="1" placeholder="Min adet"
+                              value={t.minQty ?? ''}
+                              onChange={e => setForm(f => ({
+                                ...f,
+                                priceTiers: f.priceTiers.map((x, j) =>
+                                  j === i ? { ...x, minQty: e.target.value ? +e.target.value : null } : x)
+                              }))}
+                              className="px-3 py-2 text-[13px] rounded-lg outline-none"
+                              style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', color: 'var(--text-primary)' }} />
+
+                            <input type="number" min="1" placeholder="Max (boş=∞)"
+                              value={t.maxQty ?? ''}
+                              onChange={e => setForm(f => ({
+                                ...f,
+                                priceTiers: f.priceTiers.map((x, j) =>
+                                  j === i ? { ...x, maxQty: e.target.value ? +e.target.value : null } : x)
+                              }))}
+                              className="px-3 py-2 text-[13px] rounded-lg outline-none"
+                              style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', color: 'var(--text-primary)' }} />
+
+                            <div className="relative">
+                              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[12px]"
+                                style={{ color: 'var(--text-muted)' }}>$</span>
+                              <input type="number" min="0" step="0.01"
+                                placeholder={form.pricingModel === 'PACKAGE' ? 'Paket fiyatı' : 'Birim fiyat'}
+                                value={t.price || ''}
+                                onChange={e => setForm(f => ({
+                                  ...f,
+                                  priceTiers: f.priceTiers.map((x, j) =>
+                                    j === i ? { ...x, price: +e.target.value } : x)
+                                }))}
+                                className="w-full pl-7 pr-3 py-2 text-[13px] rounded-lg outline-none"
+                                style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', color: 'var(--text-primary)' }} />
+                            </div>
+
+                            <button type="button"
+                              onClick={() => setForm(f => ({
+                                ...f,
+                                priceTiers: f.priceTiers.filter((_, j) => j !== i)
+                              }))}
+                              className="w-9 h-9 rounded-lg text-red-500 hover:bg-red-500/10 flex items-center justify-center"
+                              style={{ border: '1px solid var(--border)' }}>
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
+                        ))}
+
+                        <button type="button"
+                          onClick={() => setForm(f => {
+                            const last = f.priceTiers[f.priceTiers.length - 1]
+                            const nextMin = last?.maxQty != null ? last.maxQty + 1
+                              : last?.minQty != null ? last.minQty + 1
+                              : 1
+                            return {
+                              ...f,
+                              priceTiers: [...f.priceTiers, { minQty: nextMin, maxQty: null, price: 0 }]
+                            }
+                          })}
+                          className="text-[12px] py-2 px-3 rounded-lg hover:bg-orange-500/5"
+                          style={{ color: '#F4821F', border: '1px dashed var(--border)' }}>
+                          + Barem ekle
+                        </button>
+                      </div>
+                      <p className="text-[11px] mt-2" style={{ color: 'var(--text-muted)' }}>
+                        Fiyatlar USD. Aralıklar çakışmamalı; üst barem için Max boş bırakılır.
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Öne çıkan + Kampanya etiketi + Eski fiyat */}
+                  <div className="col-span-2 grid grid-cols-3 gap-3 pt-3 mt-1"
+                    style={{ borderTop: '1px dashed var(--border)' }}>
+
+                    <div>
+                      <label className="block text-[11px] font-bold uppercase tracking-[1px] mb-2"
+                        style={{ color: 'var(--text-muted)' }}>Öne çıkar</label>
+                      <button type="button" onClick={() => setForm(f => ({ ...f, featured: !f.featured }))}
+                        className="w-full flex items-center justify-center gap-2 text-[12px] font-semibold px-3 py-2.5 rounded-lg transition-all"
+                        style={form.featured
+                          ? { background: 'rgba(244,130,31,0.15)', color: '#F4821F', border: '1px solid rgba(244,130,31,0.4)' }
+                          : { background: 'var(--bg-secondary)', color: 'var(--text-muted)', border: '1px solid var(--border)' }}>
+                        {form.featured ? '⭐ Öne çıkan' : '☆ Normal'}
+                      </button>
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-bold uppercase tracking-[1px] mb-2"
+                        style={{ color: 'var(--text-muted)' }}>Kampanya Etiketi</label>
+                      <input value={form.badge}
+                        onChange={e => setForm(f => ({ ...f, badge: e.target.value.toUpperCase().slice(0, 25) }))}
+                        placeholder="FLASH, YENİ"
+                        className="w-full px-3 py-2.5 text-[13px] rounded-lg outline-none uppercase"
+                        style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', color: 'var(--text-primary)' }} />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-bold uppercase tracking-[1px] mb-2"
+                        style={{ color: 'var(--text-muted)' }}>Eski Fiyat ($)</label>
+                      <input type="number" min="0" step="0.01" value={form.originalPrice || ''}
+                        onChange={e => setForm(f => ({ ...f, originalPrice: +e.target.value }))}
+                        placeholder="0 = indirim yok"
+                        className="w-full px-3 py-2.5 text-[13px] rounded-lg outline-none"
+                        style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', color: 'var(--text-primary)' }} />
+                    </div>
                   </div>
 
                   {/* Açıklama */}
@@ -710,7 +900,7 @@ function UrunlerContent() {
                     {[
                       { val: 'PERCENT_INCREASE', label: '% Zam uygula' },
                       { val: 'PERCENT_DECREASE', label: '% İndirim uygula' },
-                      { val: 'FIXED_INCREASE',   label: '₺ Artış ekle' },
+                      { val: 'FIXED_INCREASE',   label: '$ Artış ekle' },
                       { val: 'FIXED_PRICE',      label: 'Sabit fiyat yap' },
                     ].map(o => (
                       <button key={o.val} type="button" onClick={() => setBulkType(o.val)}
@@ -729,7 +919,7 @@ function UrunlerContent() {
                 <div>
                   <label className="block text-[11px] font-bold uppercase tracking-[1px] mb-2"
                     style={{ color: 'var(--text-muted)' }}>
-                    Değer {bulkType.includes('PERCENT') ? '(%)' : '(₺)'}
+                    Değer {bulkType.includes('PERCENT') ? '(%)' : '($)'}
                   </label>
                   <input type="number" min="0" value={bulkValue}
                     onChange={e => setBulkValue(+e.target.value)}
@@ -741,8 +931,8 @@ function UrunlerContent() {
                   style={{ background: 'rgba(244,130,31,0.06)', border: '1px solid rgba(244,130,31,0.2)', color: '#F4821F' }}>
                   {bulkType === 'PERCENT_INCREASE' && `${bulkKat ? KATEGORILER.find(k=>k.slug===bulkKat)?.label+' ürünleri' : 'Tüm ürünler'} %${bulkValue} zamlanacak`}
                   {bulkType === 'PERCENT_DECREASE' && `${bulkKat ? KATEGORILER.find(k=>k.slug===bulkKat)?.label+' ürünleri' : 'Tüm ürünler'} %${bulkValue} indirilecek`}
-                  {bulkType === 'FIXED_INCREASE'   && `${bulkKat ? KATEGORILER.find(k=>k.slug===bulkKat)?.label+' ürünleri' : 'Tüm ürünler'} fiyatlarına ₺${bulkValue} eklenecek`}
-                  {bulkType === 'FIXED_PRICE'      && `${bulkKat ? KATEGORILER.find(k=>k.slug===bulkKat)?.label+' ürünleri' : 'Tüm ürünler'} fiyatı ₺${bulkValue} yapılacak`}
+                  {bulkType === 'FIXED_INCREASE'   && `${bulkKat ? KATEGORILER.find(k=>k.slug===bulkKat)?.label+' ürünleri' : 'Tüm ürünler'} fiyatlarına $${bulkValue} eklenecek`}
+                  {bulkType === 'FIXED_PRICE'      && `${bulkKat ? KATEGORILER.find(k=>k.slug===bulkKat)?.label+' ürünleri' : 'Tüm ürünler'} fiyatı $${bulkValue} yapılacak`}
                 </div>
 
                 <button onClick={handleBulk} disabled={bulkLoading}

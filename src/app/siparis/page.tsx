@@ -27,7 +27,9 @@ function SiparisContent() {
   const [cartItemId, setCartItemId] = useState<string | null>(null)
   const [file, setFile] = useState<File | null>(null)
   const [uploadLoading, setUploadLoading] = useState(false)
-  const addItem = useCartStore(s => s.addItem)
+
+  const applyCartResponse = useCartStore(s => s.applyCartResponse)
+  const [submitting, setSubmitting] = useState(false)
 
   const enParam   = params.get('en')   ? Number(params.get('en'))   : undefined
   const boyParam  = params.get('boy')  ? Number(params.get('boy'))  : undefined
@@ -66,8 +68,10 @@ function SiparisContent() {
     } finally { setCalcLoading(false) }
   }
 
-  const handleStep1 = async (data: Form) => {
+const handleStep1 = async (data: Form) => {
+    if (submitting) return                                // çift tıklama koruması
     if (!price) { toast.error('Önce fiyat hesaplayın'); return }
+    setSubmitting(true)
     try {
       const res = await cartApi.addItem({
         productSlug: data.productSlug,
@@ -76,28 +80,22 @@ function SiparisContent() {
         quantity: Number(data.quantity),
         declaredPrints: 1,
       })
-      const cartData = res.data.data
-      const lastItem = cartData.items[cartData.items.length - 1]
-      setCartItemId(String(lastItem.id))
-      addItem({
-        id: String(lastItem.id),
-        productSlug: data.productSlug,
-        productName: selectedProduct?.name || '',
-        widthCm: lastItem.widthCm,
-        heightCm: lastItem.heightCm,
-        quantity: lastItem.quantity,
-        unitPrice: Number(lastItem.unitPrice),
-        totalPrice: Number(lastItem.totalPrice),
-        priceBreakdown: lastItem.priceBreakdown || '',
-        fileOriginalName: lastItem.fileOriginalName,
-        filePagesCount: lastItem.filePagesCount,
-        declaredPrints: lastItem.declaredPrints ?? 1,
-        hasFile: lastItem.hasFile,
-        pageWarning: lastItem.pageWarning,
-      })
+
+      // Backend cart'ı + addedItemId'yi store'a yaz
+      const addedId = applyCartResponse(res.data?.data)
+      if (!addedId) {
+        toast.error('Eklenen ürün belirlenemedi')
+        return
+      }
+      setCartItemId(addedId)
+
       if (selectedProduct?.hasFile) setStep(1)
       else setStep(2)
-    } catch { toast.error('Sepete eklenemedi') }
+    } catch {
+      toast.error('Sepete eklenemedi')
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   const handleUpload = async () => {
@@ -226,12 +224,12 @@ function SiparisContent() {
                     </div>
                   </div>
                 )}
-
                 <button
                   type="submit"
-                  className="w-full bg-[#F4821F] text-white text-[14px] font-medium py-3 rounded-lg hover:opacity-90 transition-opacity"
+                  disabled={submitting}
+                  className="w-full bg-[#F4821F] text-white text-[14px] font-medium py-3 rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50"
                 >
-                  Devam et →
+                  {submitting ? 'Ekleniyor...' : 'Devam et →'}
                 </button>
               </form>
             )}

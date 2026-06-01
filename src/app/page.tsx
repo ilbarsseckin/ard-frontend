@@ -1,27 +1,38 @@
-import Navbar from '@/components/layout/Navbar'
-import Footer from '@/components/layout/Footer'
-import HeroSection from '@/components/sections/HeroSection'
-import BannerSlider from '@/components/sections/BannerSlider'
-import OncCikanUrunler from '@/components/sections/OncCikanUrunler'
+import HeroCarousel from '@/components/sections/HeroCarousel'
+import UrunlerSection from '@/components/sections/UrunlerSection'
+import YeniGelenler from '@/components/sections/YeniGelenler'
+import EnCokSatan from '@/components/sections/EnCokSatan'
+import Favorilerim from '@/components/sections/Favorilerim'
+import SonBaktiklarin from '@/components/sections/SonBaktiklarin'
+import NedenBiz from '@/components/sections/NedenBiz'
 import Sektorler from '@/components/sections/Sektorler'
-import ProductsSection from '@/components/sections/ProductsSection'
 import HesaplamaSection from '@/components/sections/HesaplamaSection'
 import ReferencesSection from '@/components/sections/ReferencesSection'
 import ReviewsSection from '@/components/sections/ReviewsSection'
 import CtaSection from '@/components/sections/CtaSection'
+import Navbar from '@/components/layout/Navbar'
+import Footer from '@/components/layout/Footer'
+import BaskiCozumleri from '@/components/sections/BaskiCozumleri'
 
 export default function Home() {
   return (
     <>
       <Navbar />
       <main>
-        <HeroSection />
-        <OncCikanUrunler />
-        <Sektorler />
-                <BannerSlider />
+        <div className="max-w-7xl mx-auto px-6 pt-6">
+          <HeroCarousel />
+        </div>
+        <BaskiCozumleri /> 
+        <Favorilerim />        {/* Favori yoksa otomatik gizlenir */}
+        <UrunlerSection />     {/* Öne çıkan */}
+        <YeniGelenler />       {/* Yeni eklenen */}
+        <EnCokSatan />         {/* En çok satan ← BACKEND ÇALIŞIYOR */}
+        <SonBaktiklarin />     {/* Son baktıkların */}
 
-        <ProductsSection />
+        <Sektorler />
         <HesaplamaSection />
+        <NedenBiz />
+
         <ReferencesSection />
         <ReviewsSection />
         <CtaSection />

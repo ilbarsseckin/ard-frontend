@@ -4,9 +4,33 @@ import { useRouter } from 'next/navigation'
 import Navbar from '@/components/layout/Navbar'
 import Footer from '@/components/layout/Footer'
 import { useAuthStore } from '@/lib/store/auth'
-import { orderApi } from '@/lib/api'
-import { Package, Clock, CheckCircle, Truck, User, LogOut } from 'lucide-react'
+import { orderApi, addressApi } from '@/lib/api'
+import {
+  Package, User, LogOut, MapPin, Plus, Edit3, Trash2, Star, Loader2, X, Check,
+} from 'lucide-react'
 import Link from 'next/link'
+import toast from 'react-hot-toast'
+
+interface Address {
+  id: string
+  title: string
+  fullName: string
+  phone: string
+  addressLine: string
+  district: string
+  city: string
+  isDefault: boolean
+}
+
+const EMPTY_ADDR_FORM = {
+  title: '',
+  fullName: '',
+  phone: '',
+  addressLine: '',
+  district: '',
+  city: '',
+  isDefault: false,
+}
 
 const statusMap: Record<string, { label: string; color: string }> = {
   PENDING: { label: 'Ödeme Bekleniyor', color: 'text-gray-500' },
@@ -18,43 +42,157 @@ const statusMap: Record<string, { label: string; color: string }> = {
   CANCELLED: { label: 'İptal', color: 'text-red-500' },
 }
 
+type TabKey = 'orders' | 'addresses'
+
 export default function HesabimPage() {
   const { user, logout } = useAuthStore()
   const router = useRouter()
+  const [mounted, setMounted] = useState(false)
+
+  const [activeTab, setActiveTab] = useState<TabKey>('orders')
+
+  // Orders
   const [orders, setOrders] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
+  const [ordersLoading, setOrdersLoading] = useState(true)
 
-const [mounted, setMounted] = useState(false)
+  // Addresses
+  const [addresses, setAddresses] = useState<Address[]>([])
+  const [addressesLoading, setAddressesLoading] = useState(true)
+  const [addrModalOpen, setAddrModalOpen] = useState(false)
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [addrForm, setAddrForm] = useState(EMPTY_ADDR_FORM)
+  const [savingAddr, setSavingAddr] = useState(false)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
 
-useEffect(() => {
-  setMounted(true)
-}, [])
+  useEffect(() => { setMounted(true) }, [])
 
-useEffect(() => {
-  if (!mounted) return
-  try {
-    const stored = localStorage.getItem('baski-auth')
-    if (!stored) { router.push('/giris'); return }
-    const { state } = JSON.parse(stored)
-    if (!state?.token) { router.push('/giris'); return }
+  useEffect(() => {
+    if (!mounted) return
+    try {
+      const stored = localStorage.getItem('baski-auth')
+      if (!stored) { router.push('/giris'); return }
+      const { state } = JSON.parse(stored)
+      if (!state?.token) { router.push('/giris'); return }
+
+      loadOrders()
+      loadAddresses()
+    } catch {
+      router.push('/giris')
+    }
+  }, [mounted])
+
+  const loadOrders = () => {
+    setOrdersLoading(true)
     orderApi.list()
       .then(r => setOrders(r.data.data || []))
       .catch(() => {})
-      .finally(() => setLoading(false))
-  } catch {
-    router.push('/giris')
+      .finally(() => setOrdersLoading(false))
   }
-}, [mounted])
+
+  const loadAddresses = () => {
+    setAddressesLoading(true)
+    addressApi.list()
+      .then(r => setAddresses(r.data.data || []))
+      .catch(() => {})
+      .finally(() => setAddressesLoading(false))
+  }
+
   const handleLogout = () => { logout(); router.push('/') }
+
+  const openAddModal = () => {
+    setEditingId(null)
+    setAddrForm({
+      ...EMPTY_ADDR_FORM,
+      fullName: user?.name || '',
+      phone: user?.phone || '',
+      isDefault: addresses.length === 0,  // ilk adres ise default
+    })
+    setAddrModalOpen(true)
+  }
+
+  const openEditModal = (a: Address) => {
+    setEditingId(a.id)
+    setAddrForm({
+      title: a.title,
+      fullName: a.fullName,
+      phone: a.phone,
+      addressLine: a.addressLine,
+      district: a.district,
+      city: a.city,
+      isDefault: a.isDefault,
+    })
+    setAddrModalOpen(true)
+  }
+
+  const closeAddrModal = () => {
+    setAddrModalOpen(false)
+    setEditingId(null)
+    setAddrForm(EMPTY_ADDR_FORM)
+  }
+
+  const saveAddress = async () => {
+    if (!addrForm.title.trim()) { toast.error('Adres adı zorunlu (Ev, İş vb.)'); return }
+    if (!addrForm.fullName.trim()) { toast.error('Ad soyad zorunlu'); return }
+    if (!addrForm.phone.trim()) { toast.error('Telefon zorunlu'); return }
+    if (!addrForm.addressLine.trim()) { toast.error('Adres detayı zorunlu'); return }
+    if (!addrForm.city.trim()) { toast.error('Şehir zorunlu'); return }
+    if (!addrForm.district.trim()) { toast.error('İlçe zorunlu'); return }
+
+    setSavingAddr(true)
+    try {
+      if (editingId) {
+        await addressApi.update(editingId, addrForm)
+        toast.success('Adres güncellendi')
+      } else {
+        await addressApi.add(addrForm)
+        toast.success('Adres eklendi')
+      }
+      closeAddrModal()
+      loadAddresses()
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Adres kaydedilemedi')
+    } finally {
+      setSavingAddr(false)
+    }
+  }
+
+  const deleteAddress = async (id: string, title: string) => {
+    if (!confirm(`"${title}" adresini silmek istediğinize emin misiniz?`)) return
+    setDeletingId(id)
+    try {
+      await addressApi.delete(id)
+      toast.success('Adres silindi')
+      loadAddresses()
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Adres silinemedi')
+    } finally {
+      setDeletingId(null)
+    }
+  }
+
+  const setDefault = async (a: Address) => {
+    if (a.isDefault) return
+    try {
+      await addressApi.update(a.id, { ...a, isDefault: true })
+      toast.success(`"${a.title}" artık varsayılan adres`)
+      loadAddresses()
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Varsayılan yapılamadı')
+    }
+  }
 
   return (
     <>
       <Navbar />
       <main className="min-h-screen bg-gray-50 dark:bg-[#0a0a0a]">
         <div className="max-w-5xl mx-auto px-6 py-12">
+
+          {/* Header */}
           <div className="flex items-center justify-between mb-8">
             <div>
-              <h1 className="text-[24px] font-medium tracking-[-0.5px] text-gray-900 dark:text-gray-100">Hesabım</h1>
+              <h1 className="text-[24px] font-medium tracking-[-0.5px] text-gray-900 dark:text-gray-100">
+                Hesabım
+              </h1>
               <p className="text-[13px] text-gray-400 mt-1">{user?.email}</p>
             </div>
             <button onClick={handleLogout}
@@ -63,49 +201,299 @@ useEffect(() => {
             </button>
           </div>
 
-          <h2 className="text-[16px] font-medium text-gray-900 dark:text-gray-100 mb-4">Siparişlerim</h2>
+          {/* Tabs */}
+          <div className="flex border-b mb-6" style={{ borderColor: 'var(--border)' }}>
+            <button onClick={() => setActiveTab('orders')}
+              className="flex items-center gap-2 px-5 py-3 text-[13px] font-bold transition-colors -mb-px"
+              style={{
+                color: activeTab === 'orders' ? '#F4821F' : 'var(--text-muted)',
+                borderBottom: activeTab === 'orders' ? '2px solid #F4821F' : '2px solid transparent',
+              }}>
+              <Package size={14} /> Siparişlerim
+            </button>
+            <button onClick={() => setActiveTab('addresses')}
+              className="flex items-center gap-2 px-5 py-3 text-[13px] font-bold transition-colors -mb-px"
+              style={{
+                color: activeTab === 'addresses' ? '#F4821F' : 'var(--text-muted)',
+                borderBottom: activeTab === 'addresses' ? '2px solid #F4821F' : '2px solid transparent',
+              }}>
+              <MapPin size={14} /> Adreslerim
+              {addresses.length > 0 && (
+                <span className="text-[10px] px-1.5 py-0.5 rounded-full"
+                  style={{
+                    background: activeTab === 'addresses' ? '#F4821F' : 'var(--border)',
+                    color: activeTab === 'addresses' ? 'white' : 'var(--text-muted)',
+                  }}>
+                  {addresses.length}
+                </span>
+              )}
+            </button>
+          </div>
 
-          {loading ? (
-            <div className="space-y-3">
-              {Array.from({ length: 3 }).map((_, i) => (
-                <div key={i} className="bg-white dark:bg-[#141414] border border-black/[0.07] dark:border-white/[0.07] rounded-xl p-4 h-20 animate-pulse" />
-              ))}
-            </div>
-          ) : orders.length === 0 ? (
-            <div className="bg-white dark:bg-[#141414] border border-black/[0.07] dark:border-white/[0.07] rounded-xl p-10 text-center">
-              <Package size={32} className="mx-auto mb-3 text-gray-200 dark:text-gray-700" />
-              <p className="text-[14px] text-gray-500">Henüz sipariş yok</p>
-              <Link href="/siparis" className="inline-block mt-3 text-[12px] text-[#F4821F] hover:underline">İlk siparişini ver →</Link>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {orders.map((o: any) => {
-                const s = statusMap[o.status] || { label: o.status, color: 'text-gray-500' }
-                return (
-                  <Link key={o.id} href={`/hesabim/siparisler/${o.id}`}
-                    className="block bg-white dark:bg-[#141414] border border-black/[0.07] dark:border-white/[0.07] rounded-xl p-4 hover:border-[#F4821F] transition-colors">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-[13px] font-medium text-gray-900 dark:text-gray-100">
-                          #{o.id.substring(0, 8).toUpperCase()}
+          {/* SİPARİŞLERİM TAB */}
+          {activeTab === 'orders' && (
+            <>
+              {ordersLoading ? (
+                <div className="space-y-3">
+                  {Array.from({ length: 3 }).map((_, i) => (
+                    <div key={i} className="bg-white dark:bg-[#141414] border border-black/[0.07] dark:border-white/[0.07] rounded-xl p-4 h-20 animate-pulse" />
+                  ))}
+                </div>
+              ) : orders.length === 0 ? (
+                <div className="bg-white dark:bg-[#141414] border border-black/[0.07] dark:border-white/[0.07] rounded-xl p-10 text-center">
+                  <Package size={32} className="mx-auto mb-3 text-gray-200 dark:text-gray-700" />
+                  <p className="text-[14px] text-gray-500">Henüz sipariş yok</p>
+                  <Link href="/" className="inline-block mt-3 text-[12px] text-[#F4821F] hover:underline">
+                    İlk siparişini ver →
+                  </Link>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {orders.map((o: any) => {
+                    const s = statusMap[o.status] || { label: o.status, color: 'text-gray-500' }
+                    return (
+                      <Link key={o.id} href={`/hesabim/siparisler/${o.id}`}
+                        className="block bg-white dark:bg-[#141414] border border-black/[0.07] dark:border-white/[0.07] rounded-xl p-4 hover:border-[#F4821F] transition-colors">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="text-[13px] font-medium text-gray-900 dark:text-gray-100">
+                              #{o.id.substring(0, 8).toUpperCase()}
+                            </p>
+                            <p className="text-[11px] text-gray-400 mt-0.5">
+                              {new Date(o.createdAt).toLocaleDateString('tr-TR')}
+                            </p>
+                          </div>
+                          <div className="text-right">
+                            <span className={`text-[12px] font-medium ${s.color}`}>{s.label}</span>
+                            <p className="text-[14px] font-medium text-gray-900 dark:text-gray-100 mt-0.5">
+                              ₺{o.totalPrice?.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}
+                            </p>
+                          </div>
+                        </div>
+                      </Link>
+                    )
+                  })}
+                </div>
+              )}
+            </>
+          )}
+
+          {/* ADRESLERİM TAB */}
+          {activeTab === 'addresses' && (
+            <>
+              <div className="flex items-center justify-between mb-4">
+                <p className="text-[13px]" style={{ color: 'var(--text-muted)' }}>
+                  Kayıtlı teslimat adresleriniz
+                </p>
+                <button onClick={openAddModal}
+                  className="flex items-center gap-1.5 px-4 py-2 text-[12px] font-bold text-white rounded-lg bg-[#F4821F] hover:bg-[#e07010] transition-colors">
+                  <Plus size={13} /> Yeni Adres
+                </button>
+              </div>
+
+              {addressesLoading ? (
+                <div className="space-y-3">
+                  {Array.from({ length: 2 }).map((_, i) => (
+                    <div key={i} className="bg-white dark:bg-[#141414] border border-black/[0.07] dark:border-white/[0.07] rounded-xl p-4 h-32 animate-pulse" />
+                  ))}
+                </div>
+              ) : addresses.length === 0 ? (
+                <div className="bg-white dark:bg-[#141414] border border-black/[0.07] dark:border-white/[0.07] rounded-xl p-10 text-center">
+                  <MapPin size={32} className="mx-auto mb-3 text-gray-200 dark:text-gray-700" />
+                  <p className="text-[14px] text-gray-500 mb-4">Henüz kayıtlı adres yok</p>
+                  <button onClick={openAddModal}
+                    className="inline-flex items-center gap-1.5 px-5 py-2.5 text-[12px] font-bold text-white rounded-lg bg-[#F4821F] hover:bg-[#e07010] transition-colors">
+                    <Plus size={13} /> İlk Adresimi Ekle
+                  </button>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {addresses.map(a => (
+                    <div key={a.id}
+                      className="bg-white dark:bg-[#141414] rounded-xl p-4 transition-colors"
+                      style={{
+                        border: a.isDefault ? '1.5px solid #F4821F' : '1px solid var(--border)',
+                      }}>
+                      <div className="flex items-start justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <p className="text-[14px] font-bold">{a.title}</p>
+                          {a.isDefault && (
+                            <span className="text-[9px] px-1.5 py-0.5 rounded font-bold flex items-center gap-0.5"
+                              style={{ background: 'rgba(244,130,31,0.15)', color: '#F4821F' }}>
+                              <Star size={9} /> Varsayılan
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="space-y-1 mb-3">
+                        <p className="text-[12px]" style={{ color: 'var(--text-secondary)' }}>
+                          {a.fullName} <span className="text-gray-400">·</span> {a.phone}
                         </p>
-                        <p className="text-[11px] text-gray-400 mt-0.5">
-                          {new Date(o.createdAt).toLocaleDateString('tr-TR')}
+                        <p className="text-[12px] leading-snug" style={{ color: 'var(--text-secondary)' }}>
+                          {a.addressLine}
+                        </p>
+                        <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>
+                          {a.district}/{a.city}
                         </p>
                       </div>
-                      <div className="text-right">
-                        <span className={`text-[12px] font-medium ${s.color}`}>{s.label}</span>
-                        <p className="text-[14px] font-medium text-gray-900 dark:text-gray-100 mt-0.5">
-                          ₺{o.totalPrice?.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}
-                        </p>
+
+                      <div className="flex items-center gap-2 pt-3 border-t" style={{ borderColor: 'var(--border)' }}>
+                        {!a.isDefault && (
+                          <button onClick={() => setDefault(a)}
+                            className="flex items-center gap-1 text-[11px] font-bold transition-colors hover:underline"
+                            style={{ color: '#F4821F' }}>
+                            <Star size={10} /> Varsayılan yap
+                          </button>
+                        )}
+                        <button onClick={() => openEditModal(a)}
+                          className="flex items-center gap-1 text-[11px] font-bold transition-colors hover:underline ml-auto"
+                          style={{ color: 'var(--text-secondary)' }}>
+                          <Edit3 size={10} /> Düzenle
+                        </button>
+                        <button onClick={() => deleteAddress(a.id, a.title)}
+                          disabled={deletingId === a.id}
+                          className="flex items-center gap-1 text-[11px] font-bold text-red-500 hover:underline transition-colors disabled:opacity-40">
+                          {deletingId === a.id
+                            ? <Loader2 size={10} className="animate-spin" />
+                            : <Trash2 size={10} />}
+                          Sil
+                        </button>
                       </div>
                     </div>
-                  </Link>
-                )
-              })}
-            </div>
+                  ))}
+                </div>
+              )}
+            </>
           )}
         </div>
+
+        {/* ADRES MODAL */}
+        {addrModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+            style={{ background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }}
+            onClick={closeAddrModal}>
+            <div onClick={e => e.stopPropagation()}
+              className="w-full max-w-md rounded-2xl p-6 max-h-[90vh] overflow-y-auto bg-white dark:bg-[#141414]"
+              style={{ border: '1px solid var(--border)' }}>
+
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-[16px] font-bold">
+                  {editingId ? 'Adresi Düzenle' : 'Yeni Adres'}
+                </h3>
+                <button onClick={closeAddrModal}
+                  className="w-8 h-8 rounded-lg flex items-center justify-center"
+                  style={{ border: '1px solid var(--border)', color: 'var(--text-muted)' }}>
+                  <X size={14} />
+                </button>
+              </div>
+
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-[11px] font-bold uppercase tracking-[1px] mb-1.5"
+                    style={{ color: 'var(--text-muted)' }}>
+                    Adres Adı <span style={{ color: '#EF4444' }}>*</span>
+                  </label>
+                  <input value={addrForm.title}
+                    onChange={e => setAddrForm(f => ({ ...f, title: e.target.value }))}
+                    placeholder="Ev, İş, Diğer..."
+                    className="w-full px-3.5 py-2.5 text-[13px] rounded-lg outline-none"
+                    style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)' }} />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold uppercase tracking-[1px] mb-1.5"
+                    style={{ color: 'var(--text-muted)' }}>
+                    Ad Soyad <span style={{ color: '#EF4444' }}>*</span>
+                  </label>
+                  <input value={addrForm.fullName}
+                    onChange={e => setAddrForm(f => ({ ...f, fullName: e.target.value }))}
+                    placeholder="Ahmet Yılmaz"
+                    className="w-full px-3.5 py-2.5 text-[13px] rounded-lg outline-none"
+                    style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)' }} />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold uppercase tracking-[1px] mb-1.5"
+                    style={{ color: 'var(--text-muted)' }}>
+                    Telefon <span style={{ color: '#EF4444' }}>*</span>
+                  </label>
+                  <input value={addrForm.phone}
+                    onChange={e => setAddrForm(f => ({ ...f, phone: e.target.value }))}
+                    placeholder="0555 555 55 55"
+                    className="w-full px-3.5 py-2.5 text-[13px] rounded-lg outline-none"
+                    style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)' }} />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold uppercase tracking-[1px] mb-1.5"
+                    style={{ color: 'var(--text-muted)' }}>
+                    Adres Detayı <span style={{ color: '#EF4444' }}>*</span>
+                  </label>
+                  <textarea value={addrForm.addressLine}
+                    onChange={e => setAddrForm(f => ({ ...f, addressLine: e.target.value }))}
+                    rows={2}
+                    placeholder="Mahalle, sokak, kapı no, daire..."
+                    className="w-full px-3.5 py-2.5 text-[13px] rounded-lg outline-none resize-none"
+                    style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)' }} />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-bold uppercase tracking-[1px] mb-1.5"
+                      style={{ color: 'var(--text-muted)' }}>
+                      Şehir <span style={{ color: '#EF4444' }}>*</span>
+                    </label>
+                    <input value={addrForm.city}
+                      onChange={e => setAddrForm(f => ({ ...f, city: e.target.value }))}
+                      placeholder="Gaziantep"
+                      className="w-full px-3.5 py-2.5 text-[13px] rounded-lg outline-none"
+                      style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)' }} />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-bold uppercase tracking-[1px] mb-1.5"
+                      style={{ color: 'var(--text-muted)' }}>
+                      İlçe <span style={{ color: '#EF4444' }}>*</span>
+                    </label>
+                    <input value={addrForm.district}
+                      onChange={e => setAddrForm(f => ({ ...f, district: e.target.value }))}
+                      placeholder="Şehitkamil"
+                      className="w-full px-3.5 py-2.5 text-[13px] rounded-lg outline-none"
+                      style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)' }} />
+                  </div>
+                </div>
+
+                <div className="rounded-lg p-3"
+                  style={{ background: 'rgba(244,130,31,0.04)', border: '1px solid rgba(244,130,31,0.2)' }}>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox"
+                      checked={addrForm.isDefault}
+                      onChange={e => setAddrForm(f => ({ ...f, isDefault: e.target.checked }))}
+                      className="accent-[#F4821F]" />
+                    <span className="text-[12px] font-bold flex items-center gap-1">
+                      <Star size={11} className="text-[#F4821F]" />
+                      Varsayılan adres olarak ayarla
+                    </span>
+                  </label>
+                </div>
+              </div>
+
+              <div className="flex gap-3 mt-5 pt-4" style={{ borderTop: '1px solid var(--border)' }}>
+                <button onClick={closeAddrModal}
+                  className="px-5 py-2.5 text-[13px] rounded-lg"
+                  style={{ border: '1px solid var(--border)', color: 'var(--text-secondary)', background: 'var(--bg-secondary)' }}>
+                  İptal
+                </button>
+                <button onClick={saveAddress} disabled={savingAddr}
+                  className="flex-1 flex items-center justify-center gap-2 px-5 py-2.5 text-[13px] font-bold text-white rounded-lg bg-[#F4821F] hover:bg-[#e07010] transition-colors disabled:opacity-50">
+                  {savingAddr
+                    ? <><Loader2 size={14} className="animate-spin" /> Kaydediliyor...</>
+                    : <><Check size={14} /> {editingId ? 'Güncelle' : 'Kaydet'}</>}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </main>
       <Footer />
     </>

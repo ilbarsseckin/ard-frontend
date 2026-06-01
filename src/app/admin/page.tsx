@@ -1,390 +1,334 @@
 'use client'
-import { useState, useEffect, useRef } from 'react'
+import { useEffect, useState } from 'react'
+import Link from 'next/link'
 import AdminNavbar from '@/components/layout/AdminNavbar'
 import AdminGuard from '@/components/layout/AdminGuard'
 import api from '@/lib/api'
-import toast from 'react-hot-toast'
-import { Plus, Pencil, Trash2, ToggleLeft, ToggleRight, Upload, X, Star, StarOff } from 'lucide-react'
+import {
+  TrendingUp, ShoppingBag, Users, Package, Clock, ArrowUpRight,
+  Loader2, AlertCircle, CheckCircle2, Printer, Truck
+} from 'lucide-react'
 
-const CATEGORIES = ['Zincir Market', 'İçecek & FMCG', 'Restoran', 'Otel & Turizm', 'Etkinlik & Fuar', 'Diğer']
-const COLORS = ['#E31E24','#003087','#E8000D','#F40009','#D62300','#006491','#F26522','#012169','#8A1538','#1B4F72','#F4821F','#1D9E75','#534AB7']
+interface DashboardStats {
+  todayOrders: number
+  todayRevenue: number
+  weekOrders: number
+  weekRevenue: number
+  monthOrders: number
+  monthRevenue: number
+  totalCustomers: number
+  totalProducts: number
+  activeProducts: number
+  pendingActionsCount: number
+  statusBreakdown: Record<string, number>
+  last7Days: { date: string; orders: number; revenue: number }[]
+  recentOrders: { id: string; customerName: string; status: string; totalPrice: number; createdAt: string }[]
+  topProducts: { slug: string; orderCount: number; revenue: number }[]
+}
 
-const emptyForm = { name: '', sector: '', category: CATEGORIES[0], description: '', color: '#F4821F', abbr: '', featured: false, active: true, displayOrder: 0 }
+const STATUS_LABELS: Record<string, { label: string; color: string }> = {
+  PENDING:    { label: 'Bekliyor',     color: '#F59E0B' },
+  PAID:       { label: 'Ödendi',       color: '#3B82F6' },
+  REVIEWING:  { label: 'İncelemede',   color: '#8B5CF6' },
+  PRINTING:   { label: 'Baskıda',      color: '#F4821F' },
+  SHIPPED:    { label: 'Kargoda',      color: '#06B6D4' },
+  COMPLETED:  { label: 'Tamamlandı',   color: '#10B981' },
+  CANCELLED:  { label: 'İptal',        color: '#EF4444' },
+}
 
-export default function ReferanslarPage() {
-  const [references, setReferences] = useState<any[]>([])
+function tl(n: number) {
+  return '₺' + (n || 0).toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}
+
+function formatDate(iso: string) {
+  if (!iso) return '—'
+  const d = new Date(iso)
+  return d.toLocaleString('tr-TR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
+}
+
+function formatDayLabel(iso: string) {
+  const d = new Date(iso)
+  return d.toLocaleDateString('tr-TR', { weekday: 'short', day: '2-digit' })
+}
+
+export default function AdminDashboard() {
+  const [stats, setStats] = useState<DashboardStats | null>(null)
   const [loading, setLoading] = useState(true)
-  const [showForm, setShowForm] = useState(false)
-  const [editing, setEditing] = useState<any>(null)
-  const [form, setForm] = useState<any>(emptyForm)
-  const [logoFile, setLogoFile] = useState<File | null>(null)
-  const [logoPreview, setLogoPreview] = useState<string>('')
-  const [saving, setSaving] = useState(false)
-  const [filterCat, setFilterCat] = useState('Tümü')
-  const logoRef = useRef<HTMLInputElement>(null)
+  const [error, setError] = useState(false)
 
-  const load = () => {
-    setLoading(true)
-    api.get('/api/references').then(r => setReferences(r.data.data || [])).finally(() => setLoading(false))
-  }
-
-  useEffect(() => { load() }, [])
-
-  const openNew = () => {
-    setEditing(null)
-    setForm(emptyForm)
-    setLogoFile(null)
-    setLogoPreview('')
-    setShowForm(true)
-  }
-
-  const openEdit = (ref: any) => {
-    setEditing(ref)
-    setForm({
-      name: ref.name, sector: ref.sector, category: ref.category,
-      description: ref.description || '', color: ref.color || '#F4821F',
-      abbr: ref.abbr || '', featured: ref.featured, active: ref.active,
-      displayOrder: ref.displayOrder || 0,
-    })
-    setLogoFile(null)
-    setLogoPreview(ref.logoUrl || '')
-    setShowForm(true)
-  }
-
-  const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const f = e.target.files?.[0]
-    if (!f) return
-    setLogoFile(f)
-    setLogoPreview(URL.createObjectURL(f))
-  }
-
-  const handleSave = async () => {
-    if (!form.name || !form.sector || !form.category) {
-      toast.error('İsim, sektör ve kategori zorunlu')
-      return
-    }
-    setSaving(true)
-    try {
-      const fd = new FormData()
-      fd.append('name',         form.name)
-      fd.append('sector',       form.sector)
-      fd.append('category',     form.category)
-      if (form.description)  fd.append('description',  form.description)
-      if (form.color)        fd.append('color',        form.color)
-      if (form.abbr)         fd.append('abbr',         form.abbr)
-      fd.append('featured',     String(form.featured))
-      fd.append('active',       String(form.active))
-      fd.append('displayOrder', String(form.displayOrder ?? 0))
-      if (logoFile) fd.append('logo', logoFile)
-
-      if (editing) {
-        await api.put(`/api/references/${editing.id}`, fd, { headers: { 'Content-Type': 'multipart/form-data' } })
-        toast.success('Referans güncellendi')
-      } else {
-        await api.post('/api/references', fd, { headers: { 'Content-Type': 'multipart/form-data' } })
-        toast.success('Referans eklendi')
-      }
-      setShowForm(false)
-      load()
-    } catch { toast.error('İşlem başarısız') }
-    finally { setSaving(false) }
-  }
-
-  const handleToggle = async (id: string) => {
-    try {
-      await api.patch(`/api/references/${id}/toggle`)
-      load()
-    } catch { toast.error('Güncelleme başarısız') }
-  }
-
-  const handleDelete = async (id: string, name: string) => {
-    if (!confirm(`"${name}" referansını silmek istediğinizden emin misiniz?`)) return
-    try {
-      await api.delete(`/api/references/${id}`)
-      toast.success('Silindi')
-      load()
-    } catch { toast.error('Silme başarısız') }
-  }
-
-  const filtered = filterCat === 'Tümü' ? references : references.filter(r => r.category === filterCat)
+  useEffect(() => {
+    api.get('/api/admin/dashboard/stats')
+      .then(r => setStats(r.data.data))
+      .catch(() => setError(true))
+      .finally(() => setLoading(false))
+  }, [])
 
   return (
     <AdminGuard>
       <AdminNavbar />
-      <main className="min-h-screen" style={{ background: 'var(--bg-primary)' }}>
-        <div className="max-w-6xl mx-auto px-6 py-10">
+      <main className="min-h-screen" style={{ background: 'var(--bg-secondary)' }}>
+        <div className="max-w-7xl mx-auto px-6 py-8">
 
-          {/* Başlık */}
-          <div className="flex items-center justify-between mb-8">
-            <div>
-              <h1 className="text-[24px] font-bold" style={{ color: 'var(--text-primary)', fontFamily: 'Georgia, serif' }}>
-                Referans Yönetimi
-              </h1>
-              <p className="text-[13px] mt-1" style={{ color: 'var(--text-muted)' }}>
-                {references.length} referans · {references.filter(r => r.active).length} aktif
-              </p>
-            </div>
-            <button onClick={openNew}
-              className="flex items-center gap-2 bg-[#F4821F] text-white text-[13px] font-bold px-5 py-2.5 rounded-xl hover:bg-[#e07010] transition-colors">
-              <Plus size={15} /> Yeni Referans
-            </button>
+          <div className="mb-6">
+            <h1 className="text-[22px] font-bold tracking-[-0.5px]" style={{ color: 'var(--text-primary)' }}>
+              Dashboard
+            </h1>
+            <p className="text-[13px] mt-0.5" style={{ color: 'var(--text-muted)' }}>
+              Genel bakış · {new Date().toLocaleDateString('tr-TR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+            </p>
           </div>
 
-          {/* Kategori filtresi */}
-          <div className="flex gap-2 mb-6 flex-wrap">
-            {['Tümü', ...CATEGORIES].map(cat => (
-              <button key={cat} onClick={() => setFilterCat(cat)}
-                className="text-[12px] px-3.5 py-1.5 rounded-lg font-semibold transition-all"
-                style={filterCat === cat
-                  ? { background: '#F4821F', color: 'white', border: '1px solid #F4821F' }
-                  : { background: 'var(--surface)', color: 'var(--text-secondary)', border: '1px solid var(--border)' }}>
-                {cat}
-              </button>
-            ))}
-          </div>
-
-          {/* Liste */}
           {loading ? (
-            <div className="text-center py-20" style={{ color: 'var(--text-muted)' }}>Yükleniyor...</div>
+            <div className="flex justify-center py-20">
+              <Loader2 size={28} className="animate-spin text-[#F4821F]" />
+            </div>
+          ) : error || !stats ? (
+            <div className="text-center py-20 rounded-2xl"
+              style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
+              <AlertCircle size={32} className="mx-auto mb-3 text-red-500" />
+              <p className="text-[14px]" style={{ color: 'var(--text-secondary)' }}>İstatistikler yüklenemedi</p>
+            </div>
           ) : (
-            <div className="grid grid-cols-3 gap-3">
-              {filtered.map(ref => (
-                <div key={ref.id} className="rounded-2xl p-4 transition-all"
-                  style={{ background: 'var(--bg-card)', border: `1px solid ${ref.active ? 'var(--border)' : 'var(--border)'}`, opacity: ref.active ? 1 : 0.5 }}>
+            <>
+              {/* ─── KPI cards ─── */}
+              <div className="grid grid-cols-4 gap-4 mb-6">
+                <KpiCard
+                  label="Bugünkü Ciro"
+                  value={tl(stats.todayRevenue)}
+                  sub={`${stats.todayOrders} sipariş`}
+                  icon={TrendingUp}
+                  color="#10B981" />
+                <KpiCard
+                  label="Bu Ay"
+                  value={tl(stats.monthRevenue)}
+                  sub={`${stats.monthOrders} sipariş`}
+                  icon={ShoppingBag}
+                  color="#F4821F" />
+                <KpiCard
+                  label="Bekleyen İşlem"
+                  value={stats.pendingActionsCount.toString()}
+                  sub="hazırlanacak / kargolanacak"
+                  icon={Clock}
+                  color="#F59E0B"
+                  href="/admin/siparisler" />
+                <KpiCard
+                  label="Toplam Müşteri"
+                  value={stats.totalCustomers.toString()}
+                  sub={`${stats.activeProducts}/${stats.totalProducts} aktif ürün`}
+                  icon={Users}
+                  color="#3B82F6" />
+              </div>
 
-                  {/* Logo + isim */}
-                  <div className="flex items-center gap-3 mb-3">
-                    {ref.logoUrl ? (
-                      <img src={ref.logoUrl} alt={ref.name}
-                        className="w-12 h-12 rounded-xl object-contain"
-                        style={{ background: 'var(--bg-secondary)', padding: '6px' }} />
-                    ) : (
-                      <div className="w-12 h-12 rounded-xl flex items-center justify-center text-white text-[13px] font-bold flex-shrink-0"
-                        style={{ background: ref.color }}>
-                        {ref.abbr || ref.name.slice(0, 2).toUpperCase()}
-                      </div>
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-[14px] font-bold truncate" style={{ color: 'var(--text-primary)' }}>{ref.name}</span>
-                        {ref.featured && <Star size={11} className="text-[#F4821F] flex-shrink-0" fill="#F4821F" />}
-                      </div>
-                      <span className="text-[11px] text-[#F4821F] font-semibold">{ref.sector}</span>
+              {/* ─── Grafik + durum dağılımı ─── */}
+              <div className="grid grid-cols-3 gap-4 mb-6">
+                {/* 7 günlük satış grafiği */}
+                <div className="col-span-2 rounded-2xl p-5"
+                  style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
+                  <div className="flex items-center justify-between mb-4">
+                    <div>
+                      <p className="text-[13px] font-bold" style={{ color: 'var(--text-primary)' }}>
+                        Son 7 Gün
+                      </p>
+                      <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>
+                        Günlük ciro ve sipariş sayısı
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-[18px] font-bold" style={{ color: 'var(--text-primary)' }}>
+                        {tl(stats.weekRevenue)}
+                      </p>
+                      <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>
+                        {stats.weekOrders} sipariş
+                      </p>
                     </div>
                   </div>
+                  <Last7DaysChart data={stats.last7Days} />
+                </div>
 
-                  {ref.description && (
-                    <p className="text-[11px] leading-relaxed mb-3 line-clamp-2"
-                      style={{ color: 'var(--text-muted)' }}>{ref.description}</p>
-                  )}
-
-                  {/* Aksiyonlar */}
-                  <div className="flex items-center gap-2 pt-3" style={{ borderTop: '1px solid var(--border)' }}>
-                    <button onClick={() => handleToggle(ref.id)}
-                      className="flex items-center gap-1 text-[11px] font-semibold transition-colors"
-                      style={{ color: ref.active ? '#1D9E75' : 'var(--text-muted)' }}>
-                      {ref.active ? <ToggleRight size={16} /> : <ToggleLeft size={16} />}
-                      {ref.active ? 'Aktif' : 'Pasif'}
-                    </button>
-                    <div className="flex-1" />
-                    <button onClick={() => openEdit(ref)}
-                      className="w-8 h-8 rounded-lg flex items-center justify-center transition-colors hover:text-[#F4821F]"
-                      style={{ border: '1px solid var(--border)', color: 'var(--text-muted)' }}>
-                      <Pencil size={13} />
-                    </button>
-                    <button onClick={() => handleDelete(ref.id, ref.name)}
-                      className="w-8 h-8 rounded-lg flex items-center justify-center transition-colors hover:text-red-500"
-                      style={{ border: '1px solid var(--border)', color: 'var(--text-muted)' }}>
-                      <Trash2 size={13} />
-                    </button>
+                {/* Durum dağılımı */}
+                <div className="rounded-2xl p-5"
+                  style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
+                  <p className="text-[13px] font-bold mb-4" style={{ color: 'var(--text-primary)' }}>
+                    Sipariş Durumları
+                  </p>
+                  <div className="space-y-2.5">
+                    {Object.entries(stats.statusBreakdown).map(([status, count]) => {
+                      const cfg = STATUS_LABELS[status] || { label: status, color: '#888' }
+                      const total = Object.values(stats.statusBreakdown).reduce((a, b) => a + b, 0) || 1
+                      const pct = (count / total) * 100
+                      return (
+                        <div key={status}>
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-[12px]" style={{ color: 'var(--text-secondary)' }}>
+                              {cfg.label}
+                            </span>
+                            <span className="text-[12px] font-bold" style={{ color: 'var(--text-primary)' }}>
+                              {count}
+                            </span>
+                          </div>
+                          <div className="h-1.5 rounded-full overflow-hidden"
+                            style={{ background: 'var(--bg-secondary)' }}>
+                            <div className="h-full rounded-full transition-all"
+                              style={{ width: `${pct}%`, background: cfg.color }} />
+                          </div>
+                        </div>
+                      )
+                    })}
                   </div>
                 </div>
-              ))}
+              </div>
 
-              {filtered.length === 0 && (
-                <div className="col-span-3 text-center py-16" style={{ color: 'var(--text-muted)' }}>
-                  Bu kategoride referans yok
+              {/* ─── Son siparişler + en çok satılan ─── */}
+              <div className="grid grid-cols-3 gap-4">
+                {/* Son siparişler */}
+                <div className="col-span-2 rounded-2xl p-5"
+                  style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
+                  <div className="flex items-center justify-between mb-4">
+                    <p className="text-[13px] font-bold" style={{ color: 'var(--text-primary)' }}>
+                      Son Siparişler
+                    </p>
+                    <Link href="/admin/siparisler"
+                      className="text-[11px] font-bold flex items-center gap-1 hover:underline"
+                      style={{ color: '#F4821F' }}>
+                      Tümü <ArrowUpRight size={11} />
+                    </Link>
+                  </div>
+                  {stats.recentOrders.length === 0 ? (
+                    <p className="text-[12px] py-8 text-center" style={{ color: 'var(--text-muted)' }}>
+                      Henüz sipariş yok
+                    </p>
+                  ) : (
+                    <div className="space-y-1.5">
+                      {stats.recentOrders.map(o => {
+                        const cfg = STATUS_LABELS[o.status] || { label: o.status, color: '#888' }
+                        return (
+                          <div key={o.id}
+                            className="flex items-center justify-between py-2.5 px-3 rounded-lg transition-colors hover:bg-black/[0.02] dark:hover:bg-white/[0.02]"
+                            style={{ background: 'var(--bg-secondary)' }}>
+                            <div>
+                              <p className="text-[12px] font-medium" style={{ color: 'var(--text-primary)' }}>
+                                {o.customerName}
+                              </p>
+                              <p className="text-[10px] font-mono" style={{ color: 'var(--text-muted)' }}>
+                                #{o.id.slice(0, 8).toUpperCase()} · {formatDate(o.createdAt)}
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-3">
+                              <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold"
+                                style={{
+                                  background: cfg.color + '20',
+                                  color: cfg.color,
+                                  border: `1px solid ${cfg.color}40`
+                                }}>
+                                {cfg.label}
+                              </span>
+                              <span className="text-[13px] font-bold" style={{ color: 'var(--text-primary)' }}>
+                                {tl(o.totalPrice)}
+                              </span>
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
+
+                {/* En çok satılan */}
+                <div className="rounded-2xl p-5"
+                  style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
+                  <p className="text-[13px] font-bold mb-4" style={{ color: 'var(--text-primary)' }}>
+                    En Çok Satılan
+                  </p>
+                  {stats.topProducts.length === 0 ? (
+                    <p className="text-[12px] py-8 text-center" style={{ color: 'var(--text-muted)' }}>
+                      Henüz veri yok
+                    </p>
+                  ) : (
+                    <div className="space-y-2">
+                      {stats.topProducts.map((p, i) => (
+                        <div key={p.slug} className="flex items-center gap-3">
+                          <div className="w-7 h-7 rounded-lg flex items-center justify-center text-[11px] font-black flex-shrink-0"
+                            style={{
+                              background: i === 0 ? '#F4821F' : 'var(--bg-secondary)',
+                              color: i === 0 ? 'white' : 'var(--text-muted)',
+                              border: '1px solid var(--border)'
+                            }}>
+                            {i + 1}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-[12px] font-medium truncate" style={{ color: 'var(--text-primary)' }}>
+                              {p.slug}
+                            </p>
+                            <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>
+                              {p.orderCount} adet · {tl(p.revenue)}
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </>
           )}
         </div>
       </main>
-
-      {/* Form Modal */}
-      {showForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
-          style={{ background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }}>
-          <div className="w-full max-w-lg rounded-2xl p-6 max-h-[90vh] overflow-y-auto"
-            style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
-
-            {/* Modal başlık */}
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-[18px] font-bold" style={{ color: 'var(--text-primary)', fontFamily: 'Georgia, serif' }}>
-                {editing ? 'Referansı Düzenle' : 'Yeni Referans Ekle'}
-              </h2>
-              <button onClick={() => setShowForm(false)}
-                className="w-8 h-8 rounded-lg flex items-center justify-center"
-                style={{ border: '1px solid var(--border)', color: 'var(--text-muted)' }}>
-                <X size={14} />
-              </button>
-            </div>
-
-            {/* Logo yükleme */}
-            <div className="mb-5">
-              <label className="block text-[11px] font-bold uppercase tracking-[1px] mb-2"
-                style={{ color: 'var(--text-muted)' }}>Logo</label>
-              <div className="flex items-center gap-4">
-                {/* Önizleme */}
-                <div className="w-16 h-16 rounded-xl flex items-center justify-center flex-shrink-0 cursor-pointer overflow-hidden"
-                  style={{ background: logoPreview ? 'var(--bg-secondary)' : form.color, border: '2px dashed var(--border)' }}
-                  onClick={() => logoRef.current?.click()}>
-                  {logoPreview ? (
-                    <img src={logoPreview} alt="logo" className="w-full h-full object-contain p-1" />
-                  ) : (
-                    <span className="text-white text-[16px] font-bold">
-                      {form.abbr || form.name.slice(0, 2).toUpperCase() || '?'}
-                    </span>
-                  )}
-                </div>
-                <div className="flex-1">
-                  <button onClick={() => logoRef.current?.click()}
-                    className="flex items-center gap-2 text-[12px] font-semibold px-4 py-2 rounded-lg w-full justify-center transition-colors"
-                    style={{ border: '1px solid var(--border)', color: 'var(--text-secondary)', background: 'var(--surface)' }}>
-                    <Upload size={13} />
-                    {logoPreview ? 'Logoyu değiştir' : 'Logo yükle (PNG/SVG/JPG)'}
-                  </button>
-                  <p className="text-[10px] mt-1.5" style={{ color: 'var(--text-muted)' }}>
-                    Logo yoksa renkli avatar kullanılır
-                  </p>
-                </div>
-              </div>
-              <input ref={logoRef} type="file" accept="image/*" className="hidden" onChange={handleLogoChange} />
-            </div>
-
-            {/* Form alanları */}
-            <div className="space-y-4">
-              {/* İsim + Kısaltma */}
-              <div className="grid grid-cols-3 gap-3">
-                <div className="col-span-2">
-                  <label className="block text-[11px] font-bold uppercase tracking-[1px] mb-1.5"
-                    style={{ color: 'var(--text-muted)' }}>Marka adı *</label>
-                  <input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })}
-                    placeholder="Migros"
-                    className="w-full px-3 py-2.5 rounded-lg text-[13px] outline-none transition-colors"
-                    style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', color: 'var(--text-primary)' }} />
-                </div>
-                <div>
-                  <label className="block text-[11px] font-bold uppercase tracking-[1px] mb-1.5"
-                    style={{ color: 'var(--text-muted)' }}>Kısaltma</label>
-                  <input value={form.abbr} onChange={e => setForm({ ...form, abbr: e.target.value.slice(0, 3).toUpperCase() })}
-                    placeholder="M"
-                    className="w-full px-3 py-2.5 rounded-lg text-[13px] outline-none transition-colors"
-                    style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', color: 'var(--text-primary)' }} />
-                </div>
-              </div>
-
-              {/* Sektör + Kategori */}
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[11px] font-bold uppercase tracking-[1px] mb-1.5"
-                    style={{ color: 'var(--text-muted)' }}>Sektör *</label>
-                  <input value={form.sector} onChange={e => setForm({ ...form, sector: e.target.value })}
-                    placeholder="Zincir Market"
-                    className="w-full px-3 py-2.5 rounded-lg text-[13px] outline-none"
-                    style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', color: 'var(--text-primary)' }} />
-                </div>
-                <div>
-                  <label className="block text-[11px] font-bold uppercase tracking-[1px] mb-1.5"
-                    style={{ color: 'var(--text-muted)' }}>Kategori *</label>
-                  <select value={form.category} onChange={e => setForm({ ...form, category: e.target.value })}
-                    className="w-full px-3 py-2.5 rounded-lg text-[13px] outline-none"
-                    style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}>
-                    {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-                  </select>
-                </div>
-              </div>
-
-              {/* Açıklama */}
-              <div>
-                <label className="block text-[11px] font-bold uppercase tracking-[1px] mb-1.5"
-                  style={{ color: 'var(--text-muted)' }}>Ne yaptık? (Açıklama)</label>
-                <textarea value={form.description} onChange={e => setForm({ ...form, description: e.target.value })}
-                  rows={2} placeholder="Türkiye geneli 400+ mağaza giydirme, kampanya afişleri..."
-                  className="w-full px-3 py-2.5 rounded-lg text-[13px] outline-none resize-none"
-                  style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', color: 'var(--text-primary)' }} />
-              </div>
-
-              {/* Renk seçici */}
-              <div>
-                <label className="block text-[11px] font-bold uppercase tracking-[1px] mb-2"
-                  style={{ color: 'var(--text-muted)' }}>Marka rengi (logo yoksa kullanılır)</label>
-                <div className="flex gap-2 flex-wrap">
-                  {COLORS.map(c => (
-                    <button key={c} onClick={() => setForm({ ...form, color: c })}
-                      className="w-7 h-7 rounded-lg transition-transform hover:scale-110"
-                      style={{
-                        background: c,
-                        outline: form.color === c ? `2px solid ${c}` : 'none',
-                        outlineOffset: '2px',
-                        border: '2px solid transparent',
-                      }} />
-                  ))}
-                  {/* Özel renk */}
-                  <input type="color" value={form.color} onChange={e => setForm({ ...form, color: e.target.value })}
-                    className="w-7 h-7 rounded-lg cursor-pointer border-0"
-                    title="Özel renk seç" />
-                </div>
-              </div>
-
-              {/* Sıra + Toggles */}
-              <div className="grid grid-cols-3 gap-3">
-                <div>
-                  <label className="block text-[11px] font-bold uppercase tracking-[1px] mb-1.5"
-                    style={{ color: 'var(--text-muted)' }}>Sıra</label>
-                  <input type="number" value={form.displayOrder} onChange={e => setForm({ ...form, displayOrder: +e.target.value })}
-                    min={0}
-                    className="w-full px-3 py-2.5 rounded-lg text-[13px] outline-none"
-                    style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', color: 'var(--text-primary)' }} />
-                </div>
-                <div className="flex flex-col justify-end">
-                  <button onClick={() => setForm({ ...form, featured: !form.featured })}
-                    className="flex items-center gap-2 text-[12px] font-semibold px-3 py-2.5 rounded-lg transition-all"
-                    style={form.featured
-                      ? { background: 'rgba(244,130,31,0.15)', color: '#F4821F', border: '1px solid rgba(244,130,31,0.4)' }
-                      : { background: 'var(--surface)', color: 'var(--text-muted)', border: '1px solid var(--border)' }}>
-                    {form.featured ? <Star size={13} fill="currentColor" /> : <StarOff size={13} />}
-                    Öne çıkar
-                  </button>
-                </div>
-                <div className="flex flex-col justify-end">
-                  <button onClick={() => setForm({ ...form, active: !form.active })}
-                    className="flex items-center gap-2 text-[12px] font-semibold px-3 py-2.5 rounded-lg transition-all"
-                    style={form.active
-                      ? { background: 'rgba(29,158,117,0.15)', color: '#1D9E75', border: '1px solid rgba(29,158,117,0.4)' }
-                      : { background: 'var(--surface)', color: 'var(--text-muted)', border: '1px solid var(--border)' }}>
-                    Aktif
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            {/* Kaydet */}
-            <div className="flex gap-3 mt-6 pt-5" style={{ borderTop: '1px solid var(--border)' }}>
-              <button onClick={() => setShowForm(false)}
-                className="flex-1 py-3 rounded-xl text-[13px] font-semibold transition-colors"
-                style={{ border: '1px solid var(--border)', color: 'var(--text-secondary)', background: 'var(--surface)' }}>
-                İptal
-              </button>
-              <button onClick={handleSave} disabled={saving}
-                className="flex-1 py-3 rounded-xl text-[13px] font-bold text-white transition-colors disabled:opacity-60"
-                style={{ background: '#F4821F' }}>
-                {saving ? 'Kaydediliyor...' : (editing ? 'Güncelle' : 'Kaydet')}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </AdminGuard>
+  )
+}
+
+function KpiCard({ label, value, sub, icon: Icon, color, href }: {
+  label: string; value: string; sub: string; icon: any; color: string; href?: string
+}) {
+  const inner = (
+    <div className="rounded-2xl p-5 transition-all hover:translate-y-[-2px]"
+      style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
+      <div className="flex items-start justify-between mb-3">
+        <div className="w-9 h-9 rounded-lg flex items-center justify-center"
+          style={{ background: color + '15' }}>
+          <Icon size={16} style={{ color }} />
+        </div>
+        {href && <ArrowUpRight size={13} style={{ color: 'var(--text-muted)' }} />}
+      </div>
+      <p className="text-[11px] font-bold uppercase tracking-[1px] mb-1.5" style={{ color: 'var(--text-muted)' }}>
+        {label}
+      </p>
+      <p className="text-[20px] font-black tracking-[-0.5px]" style={{ color: 'var(--text-primary)' }}>
+        {value}
+      </p>
+      <p className="text-[11px] mt-1" style={{ color: 'var(--text-muted)' }}>{sub}</p>
+    </div>
+  )
+  return href ? <Link href={href}>{inner}</Link> : inner
+}
+
+function Last7DaysChart({ data }: { data: { date: string; orders: number; revenue: number }[] }) {
+  const maxRev = Math.max(...data.map(d => d.revenue), 1)
+  return (
+    <div className="flex items-end gap-2 h-[160px]">
+      {data.map((d, i) => {
+        const h = (d.revenue / maxRev) * 100
+        return (
+          <div key={i} className="flex-1 flex flex-col items-center gap-1.5">
+            <div className="w-full flex-1 flex flex-col justify-end relative group">
+              <div className="absolute -top-7 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity text-[10px] px-2 py-1 rounded whitespace-nowrap z-10"
+                style={{ background: 'var(--text-primary)', color: 'var(--bg-primary)' }}>
+                {d.orders} sipariş · ₺{d.revenue.toLocaleString('tr-TR', { maximumFractionDigits: 0 })}
+              </div>
+              <div className="w-full rounded-t-md transition-all"
+                style={{
+                  height: `${Math.max(h, 4)}%`,
+                  background: d.revenue > 0
+                    ? 'linear-gradient(180deg, #F4821F 0%, #F4821F80 100%)'
+                    : 'var(--bg-secondary)',
+                }} />
+            </div>
+            <span className="text-[10px]" style={{ color: 'var(--text-muted)' }}>
+              {formatDayLabel(d.date)}
+            </span>
+          </div>
+        )
+      })}
+    </div>
   )
 }

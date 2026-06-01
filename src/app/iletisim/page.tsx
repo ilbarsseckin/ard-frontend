@@ -17,7 +17,7 @@ export default function IletisimPage() {
           <div className="space-y-4">
             {[
               { icon: Phone, label: 'Telefon', value: '0212 000 00 00' },
-              { icon: Mail, label: 'E-posta', value: 'info@baskipro.com' },
+              { icon: Mail, label: 'E-posta', value: 'info@baskiurunleri.com' },
               { icon: MapPin, label: 'Adres', value: 'İkitelli OSB, Atatürk Blv. No:1, İstanbul' },
               { icon: Clock, label: 'Çalışma Saatleri', value: 'Pzt–Cmt: 08:00–18:00' },
             ].map(({ icon: Icon, label, value }, i) => (

@@ -93,3 +93,25 @@ body {
 
 /* ── Seçim rengi ── */
 ::selection { background: rgba(244,130,31,0.18); color: var(--text-primary); }
+
+@keyframes marquee {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+.marquee-track {
+  animation: marquee 35s linear infinite;
+  width: max-content;
+}
+.marquee-track:hover {
+  animation-play-state: paused;
+}
+
+@keyframes ticker {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+.ticker-track {
+  animation: ticker 40s linear infinite;
+  width: max-content;
+  display: inline-flex;
+}

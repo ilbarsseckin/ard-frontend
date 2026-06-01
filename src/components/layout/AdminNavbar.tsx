@@ -2,20 +2,38 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useRouter } from 'next/navigation'
-import { Printer, Package, ShoppingBag, LogOut, LayoutDashboard, Shield, Users, Star, Moon, Sun, Settings, ExternalLink } from 'lucide-react'
+
+import {
+  Package, ShoppingBag, LogOut, LayoutDashboard, Shield, Users, Star,
+  Moon, Sun, Settings, ExternalLink, ChevronDown, FolderTree, Tag, Box,
+  Home, Image as ImageIcon, ClipboardList, MessageSquare, Gift,
+} from 'lucide-react'
 import { useTheme } from './ThemeProvider'
 import { useState, useEffect, useRef } from 'react'
 import axios from 'axios'
+import Logo from '@/components/ui/Logo'
 
 const allLinks = [
   { href: '/admin',              label: 'Dashboard',   icon: LayoutDashboard, perm: null,                adminOnly: false },
   { href: '/admin/urunler',      label: 'Ürünler',     icon: Package,         perm: 'urun.goruntule',    adminOnly: false },
-  { href: '/admin/siparisler',   label: 'Siparişler',  icon: ShoppingBag,     perm: 'siparis.goruntule', adminOnly: false },
+  { href: '/admin/kuponlar',     label: 'Kuponlar',    icon: Gift,            perm: null,                adminOnly: true  },
   { href: '/admin/referanslar',  label: 'Referanslar', icon: Star,            perm: 'referans.yonet',    adminOnly: false },
   { href: '/admin/roller',       label: 'Roller',      icon: Shield,          perm: null,                adminOnly: true  },
   { href: '/admin/ayarlar',      label: 'Ayarlar',     icon: Settings,        perm: null,                adminOnly: true  },
   { href: '/admin/kullanicilar', label: 'Kullanıcılar',icon: Users,           perm: null,                adminOnly: true  },
   { href: '/admin/bayiler',      label: 'Bayiler',     icon: Users,           perm: null,                adminOnly: false },
+]
+
+const catalogLinks = [
+  { href: '/admin/katalog/kategoriler', label: 'Kategoriler', icon: FolderTree,    desc: 'Hiyerarşik kategoriler' },
+  { href: '/admin/katalog/markalar',    label: 'Markalar',    icon: Tag,           desc: 'Marka tanımları' },
+  { href: '/admin/katalog/urunler',     label: 'Ürünler',     icon: Box,           desc: 'Katalog ürünleri' },
+  { href: '/admin/katalog/siparisler',  label: 'Siparişler',  icon: ClipboardList, desc: 'Gelen siparişler' },
+  { href: '/admin/katalog/yorumlar',    label: 'Yorumlar',    icon: MessageSquare, desc: 'Müşteri yorumları' },
+]
+
+const homeLinks = [
+  { href: '/admin/anasayfa/hero', label: 'Hero Slider', icon: ImageIcon, desc: 'Üst banner slide\'ları' },
 ]
 
 export default function AdminNavbar() {
@@ -25,6 +43,12 @@ export default function AdminNavbar() {
   const router = useRouter()
   const [name, setName] = useState<string>('')
   const [visibleLinks, setVisibleLinks] = useState<typeof allLinks>([])
+
+  const [catalogOpen, setCatalogOpen] = useState(false)
+  const catalogRef = useRef<HTMLDivElement>(null)
+
+  const [homeOpen, setHomeOpen] = useState(false)
+  const homeRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (initialized.current) return
@@ -63,10 +87,26 @@ export default function AdminNavbar() {
     } catch {}
   }, [])
 
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (catalogRef.current && !catalogRef.current.contains(e.target as Node)) {
+        setCatalogOpen(false)
+      }
+      if (homeRef.current && !homeRef.current.contains(e.target as Node)) {
+        setHomeOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
+
   const handleLogout = () => {
     localStorage.removeItem('baski-auth')
     router.push('/giris')
   }
+
+  const isCatalogPath = pathname.startsWith('/admin/katalog')
+  const isHomePath = pathname.startsWith('/admin/anasayfa')
 
   return (
     <nav className="sticky top-0 z-50 backdrop-blur-md"
@@ -75,12 +115,7 @@ export default function AdminNavbar() {
 
         <div className="flex items-center gap-4">
           <Link href="/admin" className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-[8px] bg-[#F4821F] flex items-center justify-center">
-              <Printer size={13} className="text-white" />
-            </div>
-            <span className="text-[13px] font-bold" style={{ color: 'var(--text-primary)', fontFamily: 'Georgia, serif' }}>
-              Baskı<span className="text-[#F4821F]">Pro</span>
-            </span>
+            <Logo className="h-7" />
             <span className="text-[10px] px-1.5 py-0.5 rounded font-bold"
               style={{ background: 'rgba(244,130,31,0.12)', color: '#F4821F' }}>
               Admin
@@ -98,11 +133,96 @@ export default function AdminNavbar() {
                 {l.label}
               </Link>
             ))}
+
+            {/* ─── KATALOG DROPDOWN ─── */}
+            <div ref={catalogRef} className="relative">
+              <button onClick={() => { setCatalogOpen(o => !o); setHomeOpen(false) }}
+                className="flex items-center gap-1.5 text-[12px] px-3 py-1.5 rounded-lg transition-colors font-medium"
+                style={isCatalogPath
+                  ? { background: 'rgba(244,130,31,0.1)', color: '#F4821F', border: '1px solid rgba(244,130,31,0.2)' }
+                  : { color: 'var(--text-secondary)', border: '1px solid transparent' }}>
+                <FolderTree size={13} />
+                Katalog
+                <ChevronDown size={11} className={`transition-transform duration-200 ${catalogOpen ? 'rotate-180' : ''}`} />
+              </button>
+
+              {catalogOpen && (
+                <div className="absolute top-full left-0 mt-2 w-[260px] rounded-xl overflow-hidden shadow-lg z-50"
+                  style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
+                  {catalogLinks.map(l => {
+                    const active = pathname === l.href || pathname.startsWith(l.href + '/')
+                    return (
+                      <Link key={l.href} href={l.href}
+                        onClick={() => setCatalogOpen(false)}
+                        className="flex items-start gap-2.5 px-3.5 py-2.5 transition-colors hover:bg-orange-500/5"
+                        style={{
+                          background: active ? 'rgba(244,130,31,0.06)' : 'transparent',
+                          borderBottom: '1px solid var(--border)',
+                        }}>
+                        <l.icon size={14}
+                          style={{ color: active ? '#F4821F' : 'var(--text-muted)', marginTop: 2 }} />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[12px] font-bold leading-tight"
+                            style={{ color: active ? '#F4821F' : 'var(--text-primary)' }}>
+                            {l.label}
+                          </p>
+                          <p className="text-[10px] mt-0.5" style={{ color: 'var(--text-muted)' }}>
+                            {l.desc}
+                          </p>
+                        </div>
+                      </Link>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* ─── ANA SAYFA DROPDOWN ─── */}
+            <div ref={homeRef} className="relative">
+              <button onClick={() => { setHomeOpen(o => !o); setCatalogOpen(false) }}
+                className="flex items-center gap-1.5 text-[12px] px-3 py-1.5 rounded-lg transition-colors font-medium"
+                style={isHomePath
+                  ? { background: 'rgba(244,130,31,0.1)', color: '#F4821F', border: '1px solid rgba(244,130,31,0.2)' }
+                  : { color: 'var(--text-secondary)', border: '1px solid transparent' }}>
+                <Home size={13} />
+                Ana Sayfa
+                <ChevronDown size={11} className={`transition-transform duration-200 ${homeOpen ? 'rotate-180' : ''}`} />
+              </button>
+
+              {homeOpen && (
+                <div className="absolute top-full left-0 mt-2 w-[260px] rounded-xl overflow-hidden shadow-lg z-50"
+                  style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
+                  {homeLinks.map(l => {
+                    const active = pathname === l.href || pathname.startsWith(l.href + '/')
+                    return (
+                      <Link key={l.href} href={l.href}
+                        onClick={() => setHomeOpen(false)}
+                        className="flex items-start gap-2.5 px-3.5 py-2.5 transition-colors hover:bg-orange-500/5"
+                        style={{
+                          background: active ? 'rgba(244,130,31,0.06)' : 'transparent',
+                          borderBottom: '1px solid var(--border)',
+                        }}>
+                        <l.icon size={14}
+                          style={{ color: active ? '#F4821F' : 'var(--text-muted)', marginTop: 2 }} />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[12px] font-bold leading-tight"
+                            style={{ color: active ? '#F4821F' : 'var(--text-primary)' }}>
+                            {l.label}
+                          </p>
+                          <p className="text-[10px] mt-0.5" style={{ color: 'var(--text-muted)' }}>
+                            {l.desc}
+                          </p>
+                        </div>
+                      </Link>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
         <div className="flex items-center gap-2">
-          {/* Siteye dön linki */}
           <Link
             href="/urunler"
             className="flex items-center gap-1.5 text-[11px] px-2.5 py-1.5 rounded-lg transition-colors"

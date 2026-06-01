@@ -29,7 +29,7 @@ export default function InsanKaynaklariPage() {
                 <h3 className="text-[15px] font-bold" style={{ color: 'var(--text-primary)' }}>{p.title}</h3>
                 <p className="text-[12px] mt-0.5" style={{ color: 'var(--text-muted)' }}>{p.dept} · {p.type}</p>
               </div>
-              <a href={`mailto:ik@baskipro.com?subject=${p.title} Başvurusu`}
+              <a href={`mailto:ik@baskiurunleri.com?subject=${p.title} Başvurusu`}
                 className="text-[12px] font-bold bg-[#F4821F] text-white px-5 py-2.5 rounded-xl hover:bg-[#e07010] transition-colors">
                 Başvur
               </a>
@@ -38,7 +38,7 @@ export default function InsanKaynaklariPage() {
         </div>
         <div className="mt-10 p-6 rounded-2xl" style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)' }}>
           <p className="text-[13px]" style={{ color: 'var(--text-secondary)' }}>
-            Açık pozisyon göremiyorsanız CV nizi <strong>ik@baskipro.com</strong> adresine gönderin.
+            Açık pozisyon göremiyorsanız CV nizi <strong>ik@baskiurunleri.com</strong> adresine gönderin.
           </p>
         </div>
       </main>
