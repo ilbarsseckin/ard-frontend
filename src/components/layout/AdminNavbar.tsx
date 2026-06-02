@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation'
 import {
   Package, ShoppingBag, LogOut, LayoutDashboard, Shield, Users, Star,
   Moon, Sun, Settings, ExternalLink, ChevronDown, FolderTree, Tag, Box,
-  Home, Image as ImageIcon, ClipboardList, MessageSquare, Gift,
+  Home, Image as ImageIcon, ClipboardList, MessageSquare, Gift, Megaphone,
 } from 'lucide-react'
 import { useTheme } from './ThemeProvider'
 import { useState, useEffect, useRef } from 'react'
@@ -17,6 +17,7 @@ const allLinks = [
   { href: '/admin',              label: 'Dashboard',   icon: LayoutDashboard, perm: null,                adminOnly: false },
   { href: '/admin/urunler',      label: 'Ürünler',     icon: Package,         perm: 'urun.goruntule',    adminOnly: false },
   { href: '/admin/kuponlar',     label: 'Kuponlar',    icon: Gift,            perm: null,                adminOnly: true  },
+  { href: '/admin/kampanyalar',  label: 'Kampanyalar', icon: Megaphone,       perm: null,                adminOnly: true  },
   { href: '/admin/referanslar',  label: 'Referanslar', icon: Star,            perm: 'referans.yonet',    adminOnly: false },
   { href: '/admin/roller',       label: 'Roller',      icon: Shield,          perm: null,                adminOnly: true  },
   { href: '/admin/ayarlar',      label: 'Ayarlar',     icon: Settings,        perm: null,                adminOnly: true  },

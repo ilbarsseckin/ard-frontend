@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
-import { useParams } from 'next/navigation'
+import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import Navbar from '@/components/layout/Navbar'
 import api from '@/lib/api'
@@ -35,12 +35,14 @@ interface Product {
 
 export default function KatalogKategoriPage() {
   const params = useParams()
+  const router = useRouter()
   const slug = params.kategori as string
 
   const [category, setCategory] = useState<Category | null>(null)
   const [products, setProducts] = useState<Product[]>([])
   const [kur, setKur] = useState(45)
   const [loading, setLoading] = useState(true)
+  const [redirecting, setRedirecting] = useState(false)
   const [notFound, setNotFound] = useState(false)
 
   useEffect(() => {
@@ -54,7 +56,14 @@ export default function KatalogKategoriPage() {
         ])
       })
       .then(([prodRes, settRes]) => {
-        setProducts(prodRes.data.data || [])
+        const prods: Product[] = prodRes.data.data || []
+        // Tek ürünlü kategori → araya liste girmeden doğrudan ürün detayına git
+        if (prods.length === 1) {
+          setRedirecting(true)
+          router.replace(`/urun/${prods[0].slug}`)
+          return
+        }
+        setProducts(prods)
         setKur(parseFloat(settRes.data.data?.usd_kur || '45'))
       })
       .catch(err => {
@@ -64,7 +73,7 @@ export default function KatalogKategoriPage() {
       .finally(() => setLoading(false))
   }, [slug])
 
-  if (loading) {
+  if (loading || redirecting) {
     return (
       <>
         <Navbar />

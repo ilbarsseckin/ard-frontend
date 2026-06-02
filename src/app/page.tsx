@@ -13,6 +13,7 @@ import CtaSection from '@/components/sections/CtaSection'
 import Navbar from '@/components/layout/Navbar'
 import Footer from '@/components/layout/Footer'
 import BaskiCozumleri from '@/components/sections/BaskiCozumleri'
+import KampanyaSerit from '@/components/sections/KampanyaSerit'
 
 export default function Home() {
   return (
@@ -23,6 +24,7 @@ export default function Home() {
           <HeroCarousel />
         </div>
         <BaskiCozumleri /> 
+        <KampanyaSerit />      {/* Aktif kampanya yoksa otomatik gizlenir */}
         <Favorilerim />        {/* Favori yoksa otomatik gizlenir */}
         <UrunlerSection />     {/* Öne çıkan */}
         <YeniGelenler />       {/* Yeni eklenen */}

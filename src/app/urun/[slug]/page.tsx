@@ -17,6 +17,7 @@ import ImageLightbox from '@/components/ui/ImageLightbox'
 import ProductReviews from '@/components/ui/ProductReviews'
 import ProductImageGallery from '@/components/ui/ProductImageGallery'
 import DesignUploader, { DesignSelection } from '@/components/ui/DesignUploader'
+import UrunHakkinda from '@/components/product/UrunHakkinda'
 import { useRecentView } from '@/hooks/useRecentView'
 
 interface AttrOption {
@@ -549,13 +550,7 @@ export default function UrunDetayPage() {
             </div>
 
             <div className="py-6 text-[13px] leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
-              {activeTab === 'about' && (
-                product.longDesc ? (
-                  <div className="whitespace-pre-wrap">{product.longDesc}</div>
-                ) : (
-                  <p>{product.shortDesc || 'Ürün hakkında detaylı bilgi yakında eklenecek.'}</p>
-                )
-              )}
+              {activeTab === 'about' && <UrunHakkinda product={product} />}
               {activeTab === 'notes' && (
                 <div className="space-y-2">
                   <p>• Tasarımınızı bu sayfadan yükleyin veya tasarım desteği isteyin.</p>
