@@ -22,7 +22,28 @@ export default function MultiImageUpload({
   className = '',
 }: Props) {
   const [uploading, setUploading] = useState(false)
+  const [urlInput, setUrlInput] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
+
+  const addFromUrl = () => {
+    const url = urlInput.trim()
+    if (!url) return
+    if (!/^https?:\/\//i.test(url)) {
+      toast.error('URL http:// veya https:// ile başlamalı')
+      return
+    }
+    if (values.length >= maxItems) {
+      toast.error(`En fazla ${maxItems} resim`)
+      return
+    }
+    if (values.includes(url)) {
+      toast.error('Bu URL zaten ekli')
+      return
+    }
+    onChange([...values, url])
+    setUrlInput('')
+    toast.success('URL eklendi')
+  }
 
   const uploadFiles = async (files: FileList) => {
     if (uploading) return
@@ -151,6 +172,26 @@ export default function MultiImageUpload({
 
       <input ref={inputRef} type="file" accept="image/*" multiple className="hidden"
         onChange={e => e.target.files && uploadFiles(e.target.files)} />
+
+      {/* URL ile ekleme — dosya yüklemenin alternatifi */}
+      {canAddMore && (
+        <div className="mt-3 flex gap-2">
+          <input
+            type="url"
+            value={urlInput}
+            onChange={e => setUrlInput(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addFromUrl(); } }}
+            placeholder="https://... (resim URL'si yapıştır)"
+            className="flex-1 px-3 py-2 text-[12px] rounded-lg outline-none"
+            style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
+          />
+          <button type="button" onClick={addFromUrl} disabled={!urlInput.trim()}
+            className="px-3 py-2 text-[12px] font-semibold rounded-lg text-white disabled:opacity-40 transition-colors"
+            style={{ background: '#F4821F' }}>
+            URL ekle
+          </button>
+        </div>
+      )}
 
       <p className="text-[10px] text-gray-400 mt-2">
         İlk resim ★ ana resimdir. Sıralamayı hover'daki oklarla değiştir.
