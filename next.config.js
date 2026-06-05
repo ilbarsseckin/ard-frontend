@@ -1,18 +1,12 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  output: 'standalone',
   reactStrictMode: false,
   env: {
-    NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8082',
-    NEXT_PUBLIC_SITE_URL: process.env.NEXT_PUBLIC_SITE_URL || 'https://smartdiafon.com.tr',
+    NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080',
   },
   images: {
     remotePatterns: [
-      {
-        protocol: 'http',
-        hostname: 'localhost',
-        port: '8082',
-        pathname: '/uploads/**',
-      },
       {
         protocol: 'https',
         hostname: '*.r2.cloudflarestorage.com',
@@ -20,14 +14,24 @@ const nextConfig = {
       },
       {
         protocol: 'https',
-        hostname: 'smartdiafon.com.tr',
+        hostname: 'baskiurunleri.com',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'api.baskiurunleri.com',
         pathname: '/**',
       },
     ],
   },
   async redirects() {
-    return []
+    return [
+      {
+        source: '/urun/kartvizit',
+        destination: '/urun/standart-kartvizit',
+        permanent: true,
+      },
+    ]
   },
 }
-
 module.exports = nextConfig
