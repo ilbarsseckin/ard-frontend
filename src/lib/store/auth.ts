@@ -6,8 +6,8 @@ interface User {
   name: string
   email: string
   role: string
+  phone?: string
 }
-
 interface AuthStore {
   user: User | null
   token: string | null
