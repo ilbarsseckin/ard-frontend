@@ -20,6 +20,11 @@ const nextConfig = {
       },
       {
         protocol: 'https',
+        hostname: '*.r2.dev',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
         hostname: 'baskiurunleri.com',
         pathname: '/**',
       },
