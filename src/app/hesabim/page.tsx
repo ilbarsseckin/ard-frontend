@@ -48,19 +48,15 @@ export default function HesabimPage() {
   const { user, logout } = useAuthStore()
   const router = useRouter()
   const [mounted, setMounted] = useState(false)
-
   const [activeTab, setActiveTab] = useState<TabKey>('catalog_orders')
 
-  // Orders (eski sistem)
   const [orders, setOrders] = useState<any[]>([])
   const [ordersLoading, setOrdersLoading] = useState(true)
 
-  // Katalog siparişleri
   const [catalogOrders, setCatalogOrders] = useState<any[]>([])
   const [catalogOrdersLoading, setCatalogOrdersLoading] = useState(true)
   const [trackingSearch, setTrackingSearch] = useState('')
 
-  // Addresses
   const [addresses, setAddresses] = useState<Address[]>([])
   const [addressesLoading, setAddressesLoading] = useState(true)
   const [addrModalOpen, setAddrModalOpen] = useState(false)
@@ -78,7 +74,6 @@ export default function HesabimPage() {
       if (!stored) { router.push('/giris'); return }
       const { state } = JSON.parse(stored)
       if (!state?.token) { router.push('/giris'); return }
-
       loadOrders()
       loadCatalogOrders()
       loadAddresses()
@@ -119,7 +114,7 @@ export default function HesabimPage() {
       ...EMPTY_ADDR_FORM,
       fullName: user?.name || '',
       phone: user?.phone || '',
-      isDefault: addresses.length === 0,  // ilk adres ise default
+      isDefault: addresses.length === 0,
     })
     setAddrModalOpen(true)
   }
@@ -256,7 +251,6 @@ export default function HesabimPage() {
           {/* KATALOG SİPARİŞLERİM TAB */}
           {activeTab === 'catalog_orders' && (
             <>
-              {/* Sipariş no ile hızlı sorgula */}
               <div className="rounded-xl p-4 mb-4 flex gap-2"
                 style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
                 <input
@@ -358,6 +352,9 @@ export default function HesabimPage() {
               )}
             </>
           )}
+
+          {/* ESKİ SİPARİŞLER TAB */}
+          {activeTab === 'orders' && (
             <>
               {ordersLoading ? (
                 <div className="space-y-3">
@@ -451,7 +448,6 @@ export default function HesabimPage() {
                           )}
                         </div>
                       </div>
-
                       <div className="space-y-1 mb-3">
                         <p className="text-[12px]" style={{ color: 'var(--text-secondary)' }}>
                           {a.fullName} <span className="text-gray-400">·</span> {a.phone}
@@ -463,7 +459,6 @@ export default function HesabimPage() {
                           {a.district}/{a.city}
                         </p>
                       </div>
-
                       <div className="flex items-center gap-2 pt-3 border-t" style={{ borderColor: 'var(--border)' }}>
                         {!a.isDefault && (
                           <button onClick={() => setDefault(a)}
@@ -492,6 +487,7 @@ export default function HesabimPage() {
               )}
             </>
           )}
+
         </div>
 
         {/* ADRES MODAL */}
@@ -502,7 +498,6 @@ export default function HesabimPage() {
             <div onClick={e => e.stopPropagation()}
               className="w-full max-w-md rounded-2xl p-6 max-h-[90vh] overflow-y-auto bg-white dark:bg-[#141414]"
               style={{ border: '1px solid var(--border)' }}>
-
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-[16px] font-bold">
                   {editingId ? 'Adresi Düzenle' : 'Yeni Adres'}
@@ -513,7 +508,6 @@ export default function HesabimPage() {
                   <X size={14} />
                 </button>
               </div>
-
               <div className="space-y-3">
                 <div>
                   <label className="block text-[11px] font-bold uppercase tracking-[1px] mb-1.5"
@@ -526,7 +520,6 @@ export default function HesabimPage() {
                     className="w-full px-3.5 py-2.5 text-[13px] rounded-lg outline-none"
                     style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)' }} />
                 </div>
-
                 <div>
                   <label className="block text-[11px] font-bold uppercase tracking-[1px] mb-1.5"
                     style={{ color: 'var(--text-muted)' }}>
@@ -538,7 +531,6 @@ export default function HesabimPage() {
                     className="w-full px-3.5 py-2.5 text-[13px] rounded-lg outline-none"
                     style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)' }} />
                 </div>
-
                 <div>
                   <label className="block text-[11px] font-bold uppercase tracking-[1px] mb-1.5"
                     style={{ color: 'var(--text-muted)' }}>
@@ -550,7 +542,6 @@ export default function HesabimPage() {
                     className="w-full px-3.5 py-2.5 text-[13px] rounded-lg outline-none"
                     style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)' }} />
                 </div>
-
                 <div>
                   <label className="block text-[11px] font-bold uppercase tracking-[1px] mb-1.5"
                     style={{ color: 'var(--text-muted)' }}>
@@ -563,7 +554,6 @@ export default function HesabimPage() {
                     className="w-full px-3.5 py-2.5 text-[13px] rounded-lg outline-none resize-none"
                     style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)' }} />
                 </div>
-
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="block text-[11px] font-bold uppercase tracking-[1px] mb-1.5"
@@ -588,7 +578,6 @@ export default function HesabimPage() {
                       style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)' }} />
                   </div>
                 </div>
-
                 <div className="rounded-lg p-3"
                   style={{ background: 'rgba(244,130,31,0.04)', border: '1px solid rgba(244,130,31,0.2)' }}>
                   <label className="flex items-center gap-2 cursor-pointer">
@@ -603,7 +592,6 @@ export default function HesabimPage() {
                   </label>
                 </div>
               </div>
-
               <div className="flex gap-3 mt-5 pt-4" style={{ borderTop: '1px solid var(--border)' }}>
                 <button onClick={closeAddrModal}
                   className="px-5 py-2.5 text-[13px] rounded-lg"
