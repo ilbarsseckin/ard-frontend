@@ -1,5 +1,4 @@
 import type { Metadata } from 'next'
-// @ts-ignore: side-effect import for global CSS (no type declarations)
 import './globals.css'
 
 import { Toaster } from 'react-hot-toast'
@@ -28,14 +27,7 @@ export const metadata: Metadata = {
     siteName: 'Baskıürünleri.com',
     title: 'Baskı Ürünleri — Türkiye\'nin En Hızlı Online Matbaası',
     description: 'Kartvizit, broşür, bayrak, tabela ve promosyon ürünleri. 48 saatte kapında.',
-    images: [
-      {
-        url: '/og-image.png',
-        width: 1200,
-        height: 630,
-        alt: 'Baskıürünleri.com',
-      }
-    ],
+    images: [{ url: '/og-image.png', width: 1200, height: 630, alt: 'Baskıürünleri.com' }],
   },
   twitter: {
     card: 'summary_large_image',
@@ -60,6 +52,9 @@ export const metadata: Metadata = {
   },
   alternates: {
     canonical: 'https://baskiurunleri.com',
+  },
+  verification: {
+    google: 'dXF9UI_9aX1dEwnwmRqVcSFlm6DFwjPa4sLOOknPYpQ',
   },
 }
 
