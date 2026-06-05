@@ -1,6 +1,4 @@
-import type { MetadataRoute } from 'next'
-
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://baskiurunleri.com'
+import { MetadataRoute } from 'next'
 
 export default function robots(): MetadataRoute.Robots {
   return {
@@ -8,27 +6,9 @@ export default function robots(): MetadataRoute.Robots {
       {
         userAgent: '*',
         allow: '/',
-        disallow: [
-          '/admin/',
-          '/admin',
-          '/hesabim/',
-          '/hesabim',
-          '/sepet/',
-          '/sepet',
-          '/odeme/',
-          '/odeme',
-          '/odeme-katalog/',
-          '/odeme-katalog',
-          '/giris/',
-          '/giris',
-          '/kayit/',
-          '/kayit',
-          '/ayarlar/',
-          '/api/',
-        ],
+        disallow: ['/admin/', '/api/', '/hesabim/', '/odeme/', '/sepet/'],
       },
     ],
-    sitemap: `${SITE_URL}/sitemap.xml`,
-    host: SITE_URL,
+    sitemap: 'https://baskiurunleri.com/sitemap.xml',
   }
 }

@@ -1,95 +1,72 @@
-import type { MetadataRoute } from 'next'
+import { MetadataRoute } from 'next'
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://baskiurunleri.com'
+const BASE_URL = 'https://baskiurunleri.com'
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.baskiurunleri.com'
 
-async function fetchProducts(): Promise<Array<{ slug: string; updatedAt?: string }>> {
+async function getProducts() {
   try {
-    const res = await fetch(`${API_URL}/api/catalog/products`, {
-      next: { revalidate: 3600 },
+    const res = await fetch(`${API_URL}/api/catalog/products?size=200`, {
+      next: { revalidate: 3600 }
     })
-    if (!res.ok) return []
-    const json = await res.json()
-    return (json.data || []) as Array<{ slug: string; updatedAt?: string }>
+    const data = await res.json()
+    return data.data || []
   } catch {
     return []
   }
 }
 
-async function fetchCategories(): Promise<Array<{ slug: string }>> {
+async function getCategories() {
   try {
     const res = await fetch(`${API_URL}/api/catalog/categories/tree`, {
-      next: { revalidate: 3600 },
+      next: { revalidate: 3600 }
     })
-    if (!res.ok) return []
-    const json = await res.json()
-    return (json.data || []) as Array<{ slug: string }>
+    const data = await res.json()
+    return data.data || []
   } catch {
     return []
   }
+}
+
+function flattenCategories(categories: any[]): any[] {
+  const result: any[] = []
+  for (const cat of categories) {
+    result.push(cat)
+    if (cat.children?.length > 0) {
+      result.push(...flattenCategories(cat.children))
+    }
+  }
+  return result
 }
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const [products, categories] = await Promise.all([
-    fetchProducts(),
-    fetchCategories(),
-  ])
+  const [products, categories] = await Promise.all([getProducts(), getCategories()])
+  const flatCategories = flattenCategories(categories)
 
-  // Statik sayfalar
-  const staticRoutes: MetadataRoute.Sitemap = [
-    {
-      url: SITE_URL,
-      lastModified: new Date(),
-      changeFrequency: 'daily',
-      priority: 1.0,
-    },
-    {
-      url: `${SITE_URL}/urunler`,
-      lastModified: new Date(),
-      changeFrequency: 'daily',
-      priority: 0.9,
-    },
-    {
-      url: `${SITE_URL}/hakkimizda`,
-      lastModified: new Date(),
-      changeFrequency: 'monthly',
-      priority: 0.5,
-    },
-    {
-      url: `${SITE_URL}/iletisim`,
-      lastModified: new Date(),
-      changeFrequency: 'monthly',
-      priority: 0.5,
-    },
-    {
-      url: `${SITE_URL}/bayilik`,
-      lastModified: new Date(),
-      changeFrequency: 'monthly',
-      priority: 0.4,
-    },
-    {
-      url: `${SITE_URL}/kampanyalar`,
-      lastModified: new Date(),
-      changeFrequency: 'weekly',
-      priority: 0.7,
-    },
+  const staticPages: MetadataRoute.Sitemap = [
+    { url: BASE_URL, lastModified: new Date(), changeFrequency: 'daily', priority: 1.0 },
+    { url: `${BASE_URL}/urunler`, lastModified: new Date(), changeFrequency: 'daily', priority: 0.9 },
+    { url: `${BASE_URL}/hakkimizda`, lastModified: new Date(), changeFrequency: 'monthly', priority: 0.5 },
+    { url: `${BASE_URL}/iletisim`, lastModified: new Date(), changeFrequency: 'monthly', priority: 0.6 },
+    { url: `${BASE_URL}/nasil-siparis`, lastModified: new Date(), changeFrequency: 'monthly', priority: 0.7 },
+    { url: `${BASE_URL}/tasarim-yukleme`, lastModified: new Date(), changeFrequency: 'monthly', priority: 0.6 },
+    { url: `${BASE_URL}/tasarim-destegi`, lastModified: new Date(), changeFrequency: 'monthly', priority: 0.6 },
+    { url: `${BASE_URL}/kampanyalar`, lastModified: new Date(), changeFrequency: 'weekly', priority: 0.7 },
+    { url: `${BASE_URL}/blog`, lastModified: new Date(), changeFrequency: 'weekly', priority: 0.7 },
   ]
 
-  // Kategori sayfaları
-  const categoryRoutes: MetadataRoute.Sitemap = categories.map((cat) => ({
-    url: `${SITE_URL}/katalog/${cat.slug}`,
-    lastModified: new Date(),
+  const categoryPages: MetadataRoute.Sitemap = flatCategories.map((cat: any) => ({
+    url: `${BASE_URL}/kategori/${cat.slug}`,
+    lastModified: new Date(cat.updatedAt || new Date()),
     changeFrequency: 'weekly' as const,
     priority: 0.8,
   }))
 
-  // Ürün sayfaları
-  const productRoutes: MetadataRoute.Sitemap = products.map((p) => ({
-    url: `${SITE_URL}/urun/${p.slug}`,
-    lastModified: p.updatedAt ? new Date(p.updatedAt) : new Date(),
+  const productPages: MetadataRoute.Sitemap = products.map((product: any) => ({
+    url: `${BASE_URL}/urun/${product.slug}`,
+    lastModified: new Date(product.updatedAt || new Date()),
     changeFrequency: 'weekly' as const,
-    priority: 0.85,
+    priority: 0.9,
   }))
 
-  return [...staticRoutes, ...categoryRoutes, ...productRoutes]
+  return [...staticPages, ...categoryPages, ...productPages]
 }
