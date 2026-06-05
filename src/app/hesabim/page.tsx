@@ -4,9 +4,9 @@ import { useRouter } from 'next/navigation'
 import Navbar from '@/components/layout/Navbar'
 import Footer from '@/components/layout/Footer'
 import { useAuthStore } from '@/lib/store/auth'
-import { orderApi, addressApi } from '@/lib/api'
+import { orderApi, addressApi, catalogOrderApi } from '@/lib/api'
 import {
-  Package, User, LogOut, MapPin, Plus, Edit3, Trash2, Star, Loader2, X, Check,
+  Package, User, LogOut, MapPin, Plus, Edit3, Trash2, Star, Loader2, X, Check, Truck, Search,
 } from 'lucide-react'
 import Link from 'next/link'
 import toast from 'react-hot-toast'
@@ -42,18 +42,23 @@ const statusMap: Record<string, { label: string; color: string }> = {
   CANCELLED: { label: 'İptal', color: 'text-red-500' },
 }
 
-type TabKey = 'orders' | 'addresses'
+type TabKey = 'orders' | 'catalog_orders' | 'addresses'
 
 export default function HesabimPage() {
   const { user, logout } = useAuthStore()
   const router = useRouter()
   const [mounted, setMounted] = useState(false)
 
-  const [activeTab, setActiveTab] = useState<TabKey>('orders')
+  const [activeTab, setActiveTab] = useState<TabKey>('catalog_orders')
 
-  // Orders
+  // Orders (eski sistem)
   const [orders, setOrders] = useState<any[]>([])
   const [ordersLoading, setOrdersLoading] = useState(true)
+
+  // Katalog siparişleri
+  const [catalogOrders, setCatalogOrders] = useState<any[]>([])
+  const [catalogOrdersLoading, setCatalogOrdersLoading] = useState(true)
+  const [trackingSearch, setTrackingSearch] = useState('')
 
   // Addresses
   const [addresses, setAddresses] = useState<Address[]>([])
@@ -75,6 +80,7 @@ export default function HesabimPage() {
       if (!state?.token) { router.push('/giris'); return }
 
       loadOrders()
+      loadCatalogOrders()
       loadAddresses()
     } catch {
       router.push('/giris')
@@ -87,6 +93,14 @@ export default function HesabimPage() {
       .then(r => setOrders(r.data.data || []))
       .catch(() => {})
       .finally(() => setOrdersLoading(false))
+  }
+
+  const loadCatalogOrders = () => {
+    setCatalogOrdersLoading(true)
+    catalogOrderApi.myOrders()
+      .then(r => setCatalogOrders(r.data.data || []))
+      .catch(() => {})
+      .finally(() => setCatalogOrdersLoading(false))
   }
 
   const loadAddresses = () => {
@@ -203,13 +217,22 @@ export default function HesabimPage() {
 
           {/* Tabs */}
           <div className="flex border-b mb-6" style={{ borderColor: 'var(--border)' }}>
-            <button onClick={() => setActiveTab('orders')}
+            <button onClick={() => setActiveTab('catalog_orders')}
               className="flex items-center gap-2 px-5 py-3 text-[13px] font-bold transition-colors -mb-px"
               style={{
-                color: activeTab === 'orders' ? '#F4821F' : 'var(--text-muted)',
-                borderBottom: activeTab === 'orders' ? '2px solid #F4821F' : '2px solid transparent',
+                color: activeTab === 'catalog_orders' ? '#F4821F' : 'var(--text-muted)',
+                borderBottom: activeTab === 'catalog_orders' ? '2px solid #F4821F' : '2px solid transparent',
               }}>
-              <Package size={14} /> Siparişlerim
+              <Truck size={14} /> Siparişlerim
+              {catalogOrders.length > 0 && (
+                <span className="text-[10px] px-1.5 py-0.5 rounded-full"
+                  style={{
+                    background: activeTab === 'catalog_orders' ? '#F4821F' : 'var(--border)',
+                    color: activeTab === 'catalog_orders' ? 'white' : 'var(--text-muted)',
+                  }}>
+                  {catalogOrders.length}
+                </span>
+              )}
             </button>
             <button onClick={() => setActiveTab('addresses')}
               className="flex items-center gap-2 px-5 py-3 text-[13px] font-bold transition-colors -mb-px"
@@ -230,8 +253,111 @@ export default function HesabimPage() {
             </button>
           </div>
 
-          {/* SİPARİŞLERİM TAB */}
-          {activeTab === 'orders' && (
+          {/* KATALOG SİPARİŞLERİM TAB */}
+          {activeTab === 'catalog_orders' && (
+            <>
+              {/* Sipariş no ile hızlı sorgula */}
+              <div className="rounded-xl p-4 mb-4 flex gap-2"
+                style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
+                <input
+                  type="text"
+                  value={trackingSearch}
+                  onChange={e => setTrackingSearch(e.target.value.toUpperCase())}
+                  onKeyDown={e => e.key === 'Enter' && trackingSearch.trim() && router.push(`/siparis/${trackingSearch.trim()}`)}
+                  placeholder="Sipariş no ile sorgula… (CAT-XXXXXXXX)"
+                  className="flex-1 px-3 py-2 text-[13px] font-mono rounded-lg outline-none"
+                  style={{
+                    background: 'var(--bg-secondary)',
+                    border: '1px solid var(--border)',
+                    color: 'var(--text-primary)',
+                  }}
+                />
+                <button
+                  onClick={() => trackingSearch.trim() && router.push(`/siparis/${trackingSearch.trim()}`)}
+                  disabled={!trackingSearch.trim()}
+                  className="px-4 py-2 text-[12px] font-bold text-white rounded-lg disabled:opacity-40 flex items-center gap-1.5"
+                  style={{ background: '#F4821F' }}>
+                  <Search size={13} /> Takip Et
+                </button>
+              </div>
+              {catalogOrdersLoading ? (
+                <div className="space-y-3">
+                  {Array.from({ length: 3 }).map((_, i) => (
+                    <div key={i} className="rounded-xl p-4 h-20 animate-pulse"
+                      style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }} />
+                  ))}
+                </div>
+              ) : catalogOrders.length === 0 ? (
+                <div className="rounded-xl p-10 text-center"
+                  style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
+                  <Package size={32} className="mx-auto mb-3 opacity-20" style={{ color: 'var(--text-muted)' }} />
+                  <p className="text-[14px]" style={{ color: 'var(--text-secondary)' }}>Henüz sipariş yok</p>
+                  <Link href="/urunler" className="inline-block mt-3 text-[12px] font-bold text-[#F4821F] hover:underline">
+                    Ürünlere göz at →
+                  </Link>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {catalogOrders.map((o: any) => {
+                    const statusColors: Record<string, { label: string; color: string; bg: string }> = {
+                      PENDING:       { label: 'Ödeme Bekliyor', color: '#D97706', bg: 'rgba(245,158,11,0.1)' },
+                      CONFIRMED:     { label: 'Onaylandı',      color: '#2563EB', bg: 'rgba(59,130,246,0.1)' },
+                      IN_PRODUCTION: { label: 'Üretimde',       color: '#7C3AED', bg: 'rgba(124,58,237,0.1)' },
+                      READY:         { label: 'Hazır',          color: '#0891B2', bg: 'rgba(8,145,178,0.1)'  },
+                      SHIPPED:       { label: 'Kargoda',        color: '#059669', bg: 'rgba(16,185,129,0.1)' },
+                      DELIVERED:     { label: 'Teslim Edildi',  color: '#16A34A', bg: 'rgba(22,163,74,0.1)'  },
+                      CANCELLED:     { label: 'İptal',          color: '#DC2626', bg: 'rgba(239,68,68,0.1)'  },
+                    }
+                    const st = statusColors[o.status] || statusColors.PENDING
+                    return (
+                      <Link key={o.id} href={`/siparis/${o.orderNumber}`}
+                        className="block rounded-xl p-4 transition-all hover:shadow-sm"
+                        style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1 flex-wrap">
+                              <code className="text-[13px] font-mono font-bold" style={{ color: '#F4821F' }}>
+                                {o.orderNumber}
+                              </code>
+                              <span className="text-[10px] px-2 py-0.5 rounded-full font-bold"
+                                style={{ background: st.bg, color: st.color }}>
+                                {st.label}
+                              </span>
+                              {o.trackingNumber && (
+                                <span className="text-[10px] px-2 py-0.5 rounded-full font-bold"
+                                  style={{ background: 'rgba(5,150,105,0.1)', color: '#059669' }}>
+                                  <Truck size={9} className="inline mr-1" />
+                                  {o.trackingNumber}
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>
+                              {new Date(o.createdAt).toLocaleDateString('tr-TR', {
+                                day: 'numeric', month: 'long', year: 'numeric'
+                              })}
+                            </p>
+                            {o.items?.slice(0, 2).map((item: any, i: number) => (
+                              <p key={i} className="text-[12px] mt-0.5 truncate" style={{ color: 'var(--text-secondary)' }}>
+                                {item.productName} ×{item.tierQty}
+                              </p>
+                            ))}
+                          </div>
+                          <div className="text-right flex-shrink-0">
+                            <p className="text-[18px] font-black" style={{ color: '#F4821F' }}>
+                              ₺{Number(o.totalTl).toLocaleString('tr-TR', { maximumFractionDigits: 0 })}
+                            </p>
+                            <p className="text-[11px] mt-0.5" style={{ color: 'var(--text-muted)' }}>
+                              Takip →
+                            </p>
+                          </div>
+                        </div>
+                      </Link>
+                    )
+                  })}
+                </div>
+              )}
+            </>
+          )}
             <>
               {ordersLoading ? (
                 <div className="space-y-3">

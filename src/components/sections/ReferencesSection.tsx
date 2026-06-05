@@ -75,7 +75,7 @@ export default function ReferencesSection() {
     <section id="referanslar" className="py-20" style={{ background: 'var(--bg-primary)' }}>
       <div className="max-w-7xl mx-auto px-6">
 
-        <div className="flex items-end justify-between mb-10">
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between mb-10 gap-3">
           <div>
             <p className="text-[11px] tracking-[2.5px] uppercase font-bold text-[#F4821F] mb-3">Referanslar</p>
             <h2 className="text-[32px] font-bold tracking-[-1px]"
@@ -138,13 +138,13 @@ export default function ReferencesSection() {
 
         {/* ALT — Kurumsal grid */}
         {loading ? (
-          <div className="grid grid-cols-4 gap-5">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-5">
             {[...Array(8)].map((_, i) => (
               <div key={i} className="rounded-2xl h-40 animate-pulse" style={{ background: 'var(--bg-card)' }} />
             ))}
           </div>
         ) : (
-          <div className="grid grid-cols-4 gap-5">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-5">
             {filtered.map(r => (
               <div key={r.id}
                 className="group rounded-2xl p-6 flex flex-col items-center justify-center text-center transition-all duration-300 hover:-translate-y-1 hover:shadow-lg"
@@ -183,7 +183,7 @@ export default function ReferencesSection() {
           </div>
         )}
 
-        <div className="mt-12 pt-8 flex items-center justify-between"
+        <div className="mt-12 pt-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"
           style={{ borderTop: '1px solid var(--border)' }}>
           <p className="text-[13px]" style={{ color: 'var(--text-muted)', fontFamily: 'Georgia, serif' }}>
             Siz de bu markalar arasında yer alın

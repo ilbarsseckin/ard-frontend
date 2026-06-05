@@ -185,11 +185,12 @@ export default function Navbar() {
 
         {/* ROW 2 */}
         <div style={{ background: 'var(--bg-primary)', borderBottom: '1px solid var(--border)' }}>
-          <div className="max-w-7xl mx-auto px-6 h-[72px] flex items-center gap-6">
+          <div className="max-w-7xl mx-auto px-4 md:px-6 h-[60px] md:h-[72px] flex items-center gap-3 md:gap-6">
             <Link href="/" className="flex items-center flex-shrink-0">
-              <Logo className="h-9" />
+              <Logo className="h-7 md:h-9" />
             </Link>
-            <form onSubmit={handleSearch} className="flex-1 max-w-[640px]">
+            {/* Arama — masaüstünde form, mobilde sadece ikon */}
+            <form onSubmit={handleSearch} className="hidden md:flex flex-1 max-w-[640px]">
               <div className="relative">
                 <input
                   value={search}
@@ -205,7 +206,24 @@ export default function Navbar() {
                 </button>
               </div>
             </form>
-            <div className="flex items-center gap-2 flex-shrink-0">
+            {/* Mobil arama ikonu — mobil menüde arama var */}
+            <div className="md:hidden flex items-center gap-2 ml-auto">
+              <Link href="/sepet" className="relative w-10 h-10 rounded-xl flex items-center justify-center"
+                style={{ border: '1px solid var(--border)' }}>
+                <ShoppingCart size={15} style={{ color: 'var(--text-secondary)' }} />
+                {itemCount > 0 && (
+                  <span className="absolute -top-1 -right-1 min-w-[16px] h-[16px] px-1 bg-[#F4821F] text-white text-[9px] font-bold rounded-full flex items-center justify-center">
+                    {itemCount}
+                  </span>
+                )}
+              </Link>
+              <button onClick={() => setMobileMenu(o => !o)}
+                className="w-10 h-10 rounded-xl flex items-center justify-center"
+                style={{ border: '1px solid var(--border)' }}>
+                {mobileMenu ? <X size={16} /> : <Menu size={16} />}
+              </button>
+            </div>
+            <div className="hidden md:flex items-center gap-2 flex-shrink-0">
               <Link href="/hesabim"
                 className="hidden md:flex items-center gap-2 px-3 py-2 rounded-xl transition-colors"
                 style={{ border: '1px solid var(--border)', background: 'var(--surface)' }}>

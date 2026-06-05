@@ -7,7 +7,7 @@ const reviews = [
 export default function ReviewsSection() {
   return (
     <section className="py-20 px-6 max-w-7xl mx-auto">
-      <div className="flex items-end justify-between mb-12">
+      <div className="flex flex-col sm:flex-row sm:items-end justify-between mb-12 gap-3">
         <div>
           <p className="text-[11px] tracking-[2.5px] uppercase font-bold text-[#F4821F] mb-3">Yorumlar</p>
           <h2 className="text-[32px] font-bold tracking-[-1px]"
@@ -18,7 +18,7 @@ export default function ReviewsSection() {
         </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {reviews.map((r, i) => (
           <div key={i} className="rounded-2xl p-6 transition-all duration-300 hover:scale-[1.01]"
             style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>

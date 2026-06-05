@@ -9,7 +9,7 @@ import toast from 'react-hot-toast'
 import {
   ArrowLeft, Loader2, RefreshCw, FileText, Image as ImageIcon, Download,
   User, Phone, Mail, MapPin, Calendar, CreditCard, Package,
-  AlertTriangle, MessageCircle,
+  AlertTriangle, MessageCircle, Truck,
 } from 'lucide-react'
 
 interface OrderItem {
@@ -42,6 +42,8 @@ interface OrderDetail {
   items: OrderItem[]
   createdAt: string
   updatedAt?: string
+  trackingNumber?: string
+  cargoCompany?: string
 }
 
 interface OrderFile {
@@ -98,6 +100,12 @@ export default function AdminCatalogOrderDetailPage() {
   const [updatingStatus, setUpdatingStatus] = useState(false)
   const [downloadingId, setDownloadingId] = useState<string | null>(null)
 
+  // Kargo modal state
+  const [shipModalOpen, setShipModalOpen] = useState(false)
+  const [trackingNumber, setTrackingNumber] = useState('')
+  const [cargoCompany, setCargoCompany] = useState('')
+  const [shipping, setShipping] = useState(false)
+
   const load = () => {
     setLoading(true)
     Promise.all([
@@ -125,6 +133,26 @@ export default function AdminCatalogOrderDetailPage() {
       toast.error(err.response?.data?.message || 'Durum değiştirilemedi')
     } finally {
       setUpdatingStatus(false)
+    }
+  }
+
+  const handleShip = async () => {
+    if (!order || !trackingNumber.trim()) return
+    setShipping(true)
+    try {
+      await api.patch(`/api/admin/catalog/orders/${order.id}/ship`, {
+        trackingNumber: trackingNumber.trim(),
+        cargoCompany: cargoCompany.trim() || 'Kargo',
+      })
+      toast.success('Kargo bilgisi kaydedildi, müşteriye email gönderildi ✉️')
+      setShipModalOpen(false)
+      setTrackingNumber('')
+      setCargoCompany('')
+      load()
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Kargo bilgisi kaydedilemedi')
+    } finally {
+      setShipping(false)
     }
   }
 
@@ -270,6 +298,40 @@ export default function AdminCatalogOrderDetailPage() {
               {updatingStatus && <Loader2 size={14} className="animate-spin text-[#F4821F]" />}
             </div>
           </div>
+
+          {/* Kargo bilgisi kutusu */}
+          {order.trackingNumber ? (
+            <div className="rounded-xl p-4 mb-5 flex items-center justify-between gap-4 flex-wrap"
+              style={{ background: 'rgba(16,185,129,0.06)', border: '1px solid rgba(16,185,129,0.2)' }}>
+              <div className="flex items-center gap-3">
+                <Truck size={16} className="text-emerald-600 flex-shrink-0" />
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-[1px] text-emerald-700">Kargo Bilgisi</p>
+                  <p className="text-[15px] font-bold font-mono text-emerald-800">{order.trackingNumber}</p>
+                  {order.cargoCompany && (
+                    <p className="text-[12px] text-emerald-600">{order.cargoCompany}</p>
+                  )}
+                </div>
+              </div>
+              <button onClick={() => {
+                  setTrackingNumber(order.trackingNumber || '')
+                  setCargoCompany(order.cargoCompany || '')
+                  setShipModalOpen(true)
+                }}
+                className="px-3 py-1.5 text-[11px] font-medium rounded-lg"
+                style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', color: 'var(--text-secondary)' }}>
+                Güncelle
+              </button>
+            </div>
+          ) : (
+            <div className="mb-5">
+              <button onClick={() => setShipModalOpen(true)}
+                className="flex items-center gap-2 px-4 py-2.5 text-[13px] font-bold rounded-xl text-white w-full justify-center"
+                style={{ background: 'linear-gradient(135deg, #059669, #047857)' }}>
+                <Truck size={15} /> Kargo Bilgisi Gir &amp; Müşteriye Bildir
+              </button>
+            </div>
+          )}
 
           {/* Grid — müşteri | toplam */}
           <div className="grid md:grid-cols-2 gap-3 mb-5">
@@ -501,6 +563,106 @@ export default function AdminCatalogOrderDetailPage() {
           </div>
         </div>
       </main>
+
+      {/* Kargo Bilgisi Modal */}
+      {shipModalOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ background: 'rgba(0,0,0,0.5)' }}
+          onClick={() => setShipModalOpen(false)}
+        >
+          <div
+            className="w-full max-w-md rounded-2xl p-6"
+            style={{ background: 'var(--bg-primary)', border: '1px solid var(--border)' }}
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex items-center gap-3 mb-5">
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center"
+                style={{ background: 'rgba(5,150,105,0.1)' }}>
+                <Truck size={18} className="text-emerald-600" />
+              </div>
+              <div>
+                <h2 className="text-[16px] font-bold" style={{ color: 'var(--text-primary)' }}>
+                  Kargo Bilgisi Gir
+                </h2>
+                <p className="text-[12px]" style={{ color: 'var(--text-muted)' }}>
+                  Müşteriye otomatik email gönderilecek
+                </p>
+              </div>
+            </div>
+
+            <div className="space-y-3 mb-5">
+              <div>
+                <label className="text-[11px] font-bold uppercase tracking-[1px] mb-1.5 block"
+                  style={{ color: 'var(--text-secondary)' }}>
+                  Kargo Takip Numarası *
+                </label>
+                <input
+                  type="text"
+                  value={trackingNumber}
+                  onChange={e => setTrackingNumber(e.target.value)}
+                  placeholder="örn: 12345678901"
+                  className="w-full px-3 py-2.5 text-[14px] rounded-lg outline-none font-mono"
+                  style={{
+                    background: 'var(--bg-card)',
+                    border: trackingNumber ? '1.5px solid #059669' : '1px solid var(--border)',
+                    color: 'var(--text-primary)',
+                  }}
+                  autoFocus
+                />
+              </div>
+              <div>
+                <label className="text-[11px] font-bold uppercase tracking-[1px] mb-1.5 block"
+                  style={{ color: 'var(--text-secondary)' }}>
+                  Kargo Firması
+                </label>
+                <select
+                  value={cargoCompany}
+                  onChange={e => setCargoCompany(e.target.value)}
+                  className="w-full px-3 py-2.5 text-[14px] rounded-lg outline-none"
+                  style={{
+                    background: 'var(--bg-card)',
+                    border: '1px solid var(--border)',
+                    color: 'var(--text-primary)',
+                  }}
+                >
+                  <option value="">Seçiniz</option>
+                  <option value="Yurtiçi Kargo">Yurtiçi Kargo</option>
+                  <option value="Aras Kargo">Aras Kargo</option>
+                  <option value="MNG Kargo">MNG Kargo</option>
+                  <option value="PTT Kargo">PTT Kargo</option>
+                  <option value="Sürat Kargo">Sürat Kargo</option>
+                  <option value="Trendyol Express">Trendyol Express</option>
+                  <option value="Sendeo">Sendeo</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShipModalOpen(false)}
+                className="flex-1 py-2.5 text-[13px] font-medium rounded-xl"
+                style={{ background: 'var(--bg-secondary)', color: 'var(--text-secondary)', border: '1px solid var(--border)' }}
+              >
+                İptal
+              </button>
+              <button
+                onClick={handleShip}
+                disabled={!trackingNumber.trim() || shipping}
+                className="flex-1 flex items-center justify-center gap-2 py-2.5 text-[13px] font-bold rounded-xl text-white disabled:opacity-50"
+                style={{ background: 'linear-gradient(135deg, #059669, #047857)' }}
+              >
+                {shipping ? (
+                  <Loader2 size={14} className="animate-spin" />
+                ) : (
+                  <Truck size={14} />
+                )}
+                Kaydet &amp; Bildir
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </AdminGuard>
   )
 }

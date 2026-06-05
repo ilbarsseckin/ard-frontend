@@ -133,3 +133,8 @@ export const userApi = {
   updateProfile: (data: { name: string; phone?: string }) =>
     api.put('/api/user/profile', data),
 }
+
+export const catalogOrderApi = {
+  myOrders: () => api.get('/api/catalog/orders/my'),
+  track: (orderNumber: string) => api.get(`/api/catalog/orders/track/${orderNumber}`),
+}

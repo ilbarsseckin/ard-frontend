@@ -24,6 +24,7 @@ interface AttrOption {
   value: string
   colorHex?: string
   sortOrder: number
+  priceModifier: number
 }
 
 interface Attribute {
@@ -70,7 +71,7 @@ export default function CategoryAttributesPage() {
   const [optModalOpen, setOptModalOpen] = useState(false)
   const [editingOpt, setEditingOpt] = useState<{ id: string } | null>(null)
   const [targetAttr, setTargetAttr] = useState<Attribute | null>(null)
-  const [optForm, setOptForm] = useState({ value: '', colorHex: '', sortOrder: 0 })
+  const [optForm, setOptForm] = useState({ value: '', colorHex: '', sortOrder: 0, priceModifier: 1 })
 
   const load = () => {
     setLoading(true)
@@ -148,14 +149,14 @@ export default function CategoryAttributesPage() {
   const openNewOpt = (attr: Attribute) => {
     setEditingOpt(null)
     setTargetAttr(attr)
-    setOptForm({ value: '', colorHex: '', sortOrder: (attr.options?.length || 0) + 1 })
+    setOptForm({ value: '', colorHex: '', sortOrder: (attr.options?.length || 0) + 1, priceModifier: 1 })
     setOptModalOpen(true)
   }
 
   const openEditOpt = (attr: Attribute, opt: AttrOption) => {
     setEditingOpt({ id: opt.id })
     setTargetAttr(attr)
-    setOptForm({ value: opt.value, colorHex: opt.colorHex || '', sortOrder: opt.sortOrder })
+    setOptForm({ value: opt.value, colorHex: opt.colorHex || '', sortOrder: opt.sortOrder, priceModifier: opt.priceModifier ?? 1 })
     setOptModalOpen(true)
   }
 
@@ -169,6 +170,7 @@ export default function CategoryAttributesPage() {
       value: optForm.value.trim(),
       colorHex: optForm.colorHex.trim() || null,
       sortOrder: optForm.sortOrder,
+      priceModifier: optForm.priceModifier,
     }
     try {
       if (editingOpt) {
@@ -342,6 +344,17 @@ export default function CategoryAttributesPage() {
                                 <span className="text-[12px] font-medium" style={{ color: 'var(--text-primary)' }}>
                                   {opt.value}
                                 </span>
+                                {opt.priceModifier && opt.priceModifier !== 1 ? (
+                                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded"
+                                    style={{ background: 'rgba(244,130,31,0.12)', color: '#F4821F' }}>
+                                    x{Number(opt.priceModifier).toFixed(2)}
+                                  </span>
+                                ) : (
+                                  <span className="text-[10px] px-1.5 py-0.5 rounded"
+                                    style={{ background: 'var(--bg-card)', color: 'var(--text-muted)', border: '1px solid var(--border)' }}>
+                                    baz
+                                  </span>
+                                )}
                                 <button onClick={() => openEditOpt(attr, opt)} title="Düzenle"
                                   className="ml-1 opacity-0 group-hover:opacity-100 transition-opacity text-[#F4821F]">
                                   <Edit2 size={11} />
@@ -553,6 +566,33 @@ export default function CategoryAttributesPage() {
                     onChange={e => setOptForm(f => ({ ...f, sortOrder: parseInt(e.target.value) || 0 }))}
                     className="w-full px-3.5 py-2.5 text-[13px] rounded-lg outline-none"
                     style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', color: 'var(--text-primary)' }} />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold uppercase tracking-[1px] mb-1.5"
+                    style={{ color: 'var(--text-muted)' }}>
+                    Fiyat Katsayısı
+                  </label>
+                  <p className="text-[11px] mb-2" style={{ color: 'var(--text-muted)' }}>
+                    1.0 = baz fiyat · 1.3 = %30 pahalı · 0.8 = %20 ucuz
+                  </p>
+                  <input
+                    type="number" step="0.01" min="0.01" max="9.99"
+                    value={optForm.priceModifier}
+                    onChange={e => setOptForm(f => ({ ...f, priceModifier: parseFloat(e.target.value) || 1 }))}
+                    className="w-full px-3.5 py-2.5 text-[13px] rounded-lg outline-none font-mono"
+                    style={{
+                      background: optForm.priceModifier !== 1 ? 'rgba(244,130,31,0.06)' : 'var(--bg-secondary)',
+                      border: optForm.priceModifier !== 1 ? '1.5px solid #F4821F' : '1px solid var(--border)',
+                      color: 'var(--text-primary)',
+                    }} />
+                  {optForm.priceModifier !== 1 && (
+                    <p className="text-[11px] mt-1 font-semibold" style={{ color: '#F4821F' }}>
+                      Baz fiyata göre {optForm.priceModifier > 1
+                        ? `+%${((optForm.priceModifier - 1) * 100).toFixed(0)} daha pahalı`
+                        : `-%${((1 - optForm.priceModifier) * 100).toFixed(0)} daha ucuz`}
+                    </p>
+                  )}
                 </div>
               </div>
 

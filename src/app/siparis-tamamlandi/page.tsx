@@ -4,7 +4,8 @@ import { useSearchParams, useRouter } from 'next/navigation'
 import Navbar from '@/components/layout/Navbar'
 import api from '@/lib/api'
 import toast from 'react-hot-toast'
-import { CreditCard, Lock, AlertCircle, Loader2, ChevronLeft, Package } from 'lucide-react'
+import Link from 'next/link'
+import { CreditCard, Lock, AlertCircle, Loader2, ChevronLeft, Package, CheckCircle2, Truck } from 'lucide-react'
 
 interface CatalogOrderDetail {
   id: string
@@ -25,7 +26,8 @@ interface CatalogOrderDetail {
 function OdemeKatalogContent() {
   const params = useSearchParams()
   const router = useRouter()
-  const orderNumber = params.get('siparisNo')
+  // Callback'ten ?n= gelir, doğrudan açılırsa ?siparisNo= olabilir
+  const orderNumber = params.get('n') || params.get('siparisNo')
   const errorParam = params.get('hata')
   const iframeRef = useRef<HTMLIFrameElement>(null)
 
@@ -61,10 +63,6 @@ function OdemeKatalogContent() {
       .then(r => {
         const o = r.data.data
         setOrder(o)
-        // Eğer zaten ödenmiş ise success sayfasına yönlendir
-        if (o.paymentStatus === 'PAID') {
-          router.push(`/siparis-tamamlandi?n=${orderNumber}`)
-        }
       })
       .catch(() => {
         toast.error('Sipariş bulunamadı')
@@ -132,6 +130,49 @@ function OdemeKatalogContent() {
     } finally {
       setPaymentLoading(false)
     }
+  }
+
+  // ✅ Ödeme tamamlandı — başarı ekranı
+  if (order?.paymentStatus === 'PAID') {
+    return (
+      <>
+        <Navbar />
+        <main className="min-h-screen flex items-center justify-center py-12" style={{ background: 'var(--bg-secondary)' }}>
+          <div className="text-center max-w-sm mx-auto px-6">
+            <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-5"
+              style={{ background: 'rgba(16,185,129,0.1)' }}>
+              <CheckCircle2 size={36} className="text-emerald-500" />
+            </div>
+            <h1 className="text-[24px] font-black tracking-[-0.5px] mb-2" style={{ color: 'var(--text-primary)' }}>
+              Ödeme Başarılı! 🎉
+            </h1>
+            <p className="text-[14px] mb-1" style={{ color: 'var(--text-secondary)' }}>
+              Siparişiniz alındı, üretim sürecine aktarılıyor.
+            </p>
+            <p className="text-[13px] mb-6" style={{ color: 'var(--text-muted)' }}>
+              Sipariş no: <code className="font-mono font-bold" style={{ color: '#F4821F' }}>
+                {order.orderNumber}
+              </code>
+            </p>
+            <div className="space-y-3">
+              <Link href={`/siparis/${order.orderNumber}`}
+                className="flex items-center justify-center gap-2 w-full py-3 text-[14px] font-bold text-white rounded-xl"
+                style={{ background: 'linear-gradient(135deg, #F4821F, #e07010)' }}>
+                <Truck size={15} /> Siparişimi Takip Et
+              </Link>
+              <Link href="/urunler"
+                className="flex items-center justify-center w-full py-3 text-[13px] font-medium rounded-xl"
+                style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', color: 'var(--text-secondary)' }}>
+                Alışverişe Devam Et
+              </Link>
+            </div>
+            <p className="text-[11px] mt-5" style={{ color: 'var(--text-muted)' }}>
+              Onay emaili kayıtlı adresinize gönderildi.
+            </p>
+          </div>
+        </main>
+      </>
+    )
   }
 
   if (orderLoading) {

@@ -115,3 +115,10 @@ body {
   width: max-content;
   display: inline-flex;
 }
+@keyframes sway {
+  0%   { transform: translateX(-50%) rotate(-1.5deg) skewX(0.5deg); }
+  25%  { transform: translateX(-50%) rotate(0.5deg) skewX(-0.5deg); }
+  50%  { transform: translateX(-50%) rotate(1.5deg) skewX(0.8deg); }
+  75%  { transform: translateX(-50%) rotate(-0.5deg) skewX(-0.3deg); }
+  100% { transform: translateX(-50%) rotate(-1.5deg) skewX(0.5deg); }
+}

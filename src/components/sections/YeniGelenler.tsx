@@ -1,5 +1,6 @@
 'use client'
-import { useState, useEffect } from 'react'
+
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import api from '@/lib/api'
 import SectionHeader from '@/components/ui/SectionHeader'
@@ -16,6 +17,9 @@ interface Product {
   mainImageUrl?: string
   hoverImageUrl?: string
   startingPriceUsd?: number
+  basePrice?: number
+  priceUsd?: number
+  price?: number
   createdAt?: string
 }
 
@@ -24,27 +28,40 @@ export default function YeniGelenler() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    api.get('/api/catalog/products')
-      .then(r => {
-        const all: Product[] = r.data.data || []
-        // En yeniden eskiye sırala
+    let mounted = true
+
+    api
+      .get('/api/catalog/products')
+      .then((r) => {
+        if (!mounted) return
+
+        const all: Product[] = r.data?.data || []
+
         const sorted = [...all].sort((a, b) => {
           const ta = a.createdAt ? new Date(a.createdAt).getTime() : 0
           const tb = b.createdAt ? new Date(b.createdAt).getTime() : 0
           return tb - ta
         })
+
         setProducts(sorted.slice(0, 8))
       })
-      .catch(() => {})
-      .finally(() => setLoading(false))
+      .catch(() => {
+        if (mounted) setProducts([])
+      })
+      .finally(() => {
+        if (mounted) setLoading(false)
+      })
+
+    return () => {
+      mounted = false
+    }
   }, [])
 
-  // Hiç ürün yoksa veya sadece 1 ürün varsa (öne çıkanla aynı olacak), bölümü gösterme
   if (!loading && products.length < 3) return null
 
   return (
     <section className="py-10 md:py-16">
-      <div className="max-w-7xl mx-auto px-6">
+      <div className="mx-auto max-w-7xl px-4 md:px-6">
         <SectionHeader
           badge="YENİ GELENLER"
           badgeIcon="star"
@@ -58,8 +75,10 @@ export default function YeniGelenler() {
             <Loader2 size={24} className="animate-spin text-[#F4821F]" />
           </div>
         ) : (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {products.map(p => <ProductCard key={p.id} product={p} />)}
+          <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 lg:grid-cols-4">
+            {products.map((product) => (
+              <ProductCard key={product.id} product={product} />
+            ))}
           </div>
         )}
       </div>
@@ -69,58 +88,90 @@ export default function YeniGelenler() {
 
 function ProductCard({ product }: { product: Product }) {
   const [hovered, setHovered] = useState(false)
-  const img = (hovered && product.hoverImageUrl) ? product.hoverImageUrl : product.mainImageUrl
+
+  const image =
+    hovered && product.hoverImageUrl
+      ? product.hoverImageUrl
+      : product.mainImageUrl
+
+  const rawPrice =
+    product.startingPriceUsd ??
+    product.basePrice ??
+    product.priceUsd ??
+    product.price
+
+  const price = Number(rawPrice)
+  const hasPrice = Number.isFinite(price) && price > 0
 
   return (
-    <Link href={`/urun/${product.slug}`}
+    <Link
+      href={`/urun/${product.slug}`}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
-      className="group block rounded-2xl overflow-hidden transition-all hover:shadow-lg hover:-translate-y-0.5"
-      style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
-
-      {/* Resim */}
-      <div className="relative aspect-square overflow-hidden"
-        style={{ background: 'var(--bg-secondary)' }}>
-        {img ? (
-          <img src={img} alt={product.name}
-            className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
+      className="group block overflow-hidden rounded-2xl transition-all duration-300 hover:-translate-y-0.5 hover:shadow-lg"
+      style={{
+        background: 'var(--bg-card)',
+        border: '1px solid var(--border)',
+      }}
+    >
+      <div
+        className="relative aspect-square overflow-hidden"
+        style={{ background: 'var(--bg-secondary)' }}
+      >
+        {image ? (
+          <img
+            src={image}
+            alt={product.name}
+            loading="lazy"
+            className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+          />
         ) : (
-          <div className="w-full h-full flex items-center justify-center">
-            <Package size={40} className="opacity-30" style={{ color: 'var(--text-muted)' }} />
+          <div className="flex h-full w-full items-center justify-center">
+            <Package
+              size={34}
+              className="opacity-30 md:size-10"
+              style={{ color: 'var(--text-muted)' }}
+            />
           </div>
         )}
-        {/* "Yeni" rozeti */}
-        <span className="absolute top-2 left-2 text-[9px] font-black uppercase tracking-[1px] px-2 py-1 rounded-full"
-          style={{ background: '#F4821F', color: 'white' }}>
+
+        <span className="absolute left-2 top-2 z-10 rounded-full bg-[#F4821F] px-2.5 py-1 text-[8px] font-black uppercase tracking-[1px] text-white md:text-[9px]">
           Yeni
         </span>
+
+        {hasPrice && (
+          <div className="absolute bottom-2 right-2 z-10 rounded-full bg-white px-3 py-1.5 shadow-md backdrop-blur-sm dark:bg-gray-900">
+            <span className="text-[12px] font-black text-[#F4821F]">
+              ${price.toFixed(2)}
+            </span>
+          </div>
+        )}
       </div>
 
-      {/* İçerik */}
-      <div className="p-3">
+      <div className="p-2.5 md:p-4">
         {product.categoryName && (
-          <p className="text-[10px] uppercase tracking-[1px] font-bold mb-1"
-            style={{ color: 'var(--text-muted)' }}>
+          <p
+            className="mb-1 line-clamp-1 text-[9px] font-bold uppercase tracking-[1px] md:text-[10px]"
+            style={{ color: 'var(--text-muted)' }}
+          >
             {product.categoryName}
           </p>
         )}
-        <h3 className="text-[14px] font-bold leading-tight line-clamp-2 mb-1"
-          style={{ color: 'var(--text-primary)' }}>
+
+        <h3
+          className="line-clamp-2 min-h-[34px] text-[12px] font-bold leading-tight md:min-h-[42px] md:text-[15px]"
+          style={{ color: 'var(--text-primary)' }}
+        >
           {product.name}
         </h3>
+
         {product.shortDesc && (
-          <p className="text-[11px] line-clamp-1 mb-2"
-            style={{ color: 'var(--text-muted)' }}>
+          <p
+            className="mt-2 hidden text-[12px] leading-relaxed md:line-clamp-2"
+            style={{ color: 'var(--text-muted)' }}
+          >
             {product.shortDesc}
           </p>
-        )}
-        {product.startingPriceUsd != null && (
-          <div className="flex items-baseline gap-1 mt-2">
-            <span className="text-[10px]" style={{ color: 'var(--text-muted)' }}>başlangıç</span>
-            <span className="text-[14px] font-black text-[#F4821F]">
-              ${Number(product.startingPriceUsd).toFixed(2)}
-            </span>
-          </div>
         )}
       </div>
     </Link>

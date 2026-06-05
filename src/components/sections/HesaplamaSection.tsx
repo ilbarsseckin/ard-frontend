@@ -99,7 +99,7 @@ export default function HesaplamaSection() {
     <section className="py-20" style={{ background: 'var(--bg-secondary)' }}>
       <div className="max-w-7xl mx-auto px-6">
 
-        <div className="flex items-end justify-between mb-10">
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 mb-10">
           <div>
             <p className="text-[11px] tracking-[2.5px] uppercase font-bold text-[#F4821F] mb-3">Fiyat Hesaplama</p>
             <h2 className="text-[32px] font-bold tracking-[-1px]"
@@ -121,7 +121,7 @@ export default function HesaplamaSection() {
         <div className="rounded-2xl p-8" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
 
           {/* Ürün seçimi */}
-          <div className="grid grid-cols-2 gap-6 mb-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-6">
             <div>
               <label className="block text-[11px] font-bold uppercase tracking-[1px] mb-2"
                 style={{ color: 'var(--text-muted)' }}>Baskı Tipi</label>
@@ -155,7 +155,7 @@ export default function HesaplamaSection() {
           </div>
 
           {/* Ölçüler */}
-          <div className="grid grid-cols-5 gap-4 mb-8">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4 mb-8">
             {[
               { label: 'Yükseklik (m)', val: yukseklik, set: setYukseklik, placeholder: '2.00' },
               { label: 'Genişlik (m)',  val: genislik,  set: setGenislik,  placeholder: '3.00' },
@@ -190,7 +190,7 @@ export default function HesaplamaSection() {
             </button>
 
             {sonuc && (
-              <div className="flex-1 grid grid-cols-3 gap-4">
+              <div className="flex-1 grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div className="px-5 py-4 rounded-xl" style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)' }}>
                   <p className="text-[10px] uppercase tracking-[1px] font-bold" style={{ color: 'var(--text-muted)' }}>Toplam m²</p>
                   <p className="text-[22px] font-bold mt-1" style={{ color: 'var(--text-primary)', fontFamily: 'Georgia, serif' }}>

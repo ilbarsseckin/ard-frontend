@@ -1,3 +1,4 @@
+import type { Metadata } from 'next'
 import HeroCarousel from '@/components/sections/HeroCarousel'
 import UrunlerSection from '@/components/sections/UrunlerSection'
 import YeniGelenler from '@/components/sections/YeniGelenler'
@@ -14,27 +15,68 @@ import Navbar from '@/components/layout/Navbar'
 import Footer from '@/components/layout/Footer'
 import BaskiCozumleri from '@/components/sections/BaskiCozumleri'
 import KampanyaSerit from '@/components/sections/KampanyaSerit'
+import Yelenbayrak from '@/components/sections/YelkenBayrak'
+import Kampanya from '@/components/sections/kampanyaSection'
+
+
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://baskiurunleri.com'
+
+export const metadata: Metadata = {
+  title: 'baskıurunleri.com — Türkiye\'nin En Hızlı Online Matbaası',
+  description: 'Büyük format, kartvizit, sticker, tabela. Tasarımını yükle, anlık fiyatı gör, 48 saatte kapında. Profesyonel baskı, hızlı teslimat, uygun fiyat.',
+  alternates: { canonical: SITE_URL },
+  openGraph: {
+    title: 'baskıurunleri.com — Türkiye\'nin En Hızlı Online Matbaası',
+    description: 'Büyük format, kartvizit, sticker, tabela. Tasarımını yükle, anlık fiyatı gör, 48 saatte kapında.',
+    url: SITE_URL,
+    siteName: 'baskıurunleri.com',
+    locale: 'tr_TR',
+    type: 'website',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'baskıurunleri.com — Türkiye\'nin En Hızlı Online Matbaası',
+    description: 'Büyük format, kartvizit, sticker, tabela. 48 saatte kapında.',
+  },
+}
+
+const organizationJsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'Organization',
+  name: 'baskıurunleri.com',
+  url: SITE_URL,
+  logo: `${SITE_URL}/logo.svg`,
+  contactPoint: {
+    '@type': 'ContactPoint',
+    contactType: 'customer service',
+    availableLanguage: 'Turkish',
+  },
+  sameAs: [],
+}
 
 export default function Home() {
   return (
     <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd) }}
+      />
       <Navbar />
       <main>
-        <div className="max-w-7xl mx-auto px-6 pt-6">
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 pt-3 sm:pt-6">
           <HeroCarousel />
         </div>
-        <BaskiCozumleri /> 
-        <KampanyaSerit />      {/* Aktif kampanya yoksa otomatik gizlenir */}
-        <Favorilerim />        {/* Favori yoksa otomatik gizlenir */}
-        <UrunlerSection />     {/* Öne çıkan */}
-        <YeniGelenler />       {/* Yeni eklenen */}
-        <EnCokSatan />         {/* En çok satan ← BACKEND ÇALIŞIYOR */}
-        <SonBaktiklarin />     {/* Son baktıkların */}
-
+        <BaskiCozumleri />
+        <KampanyaSerit />
+        <Favorilerim />
+        <UrunlerSection />
+        <YeniGelenler />
+        <Yelenbayrak />
+        <EnCokSatan />
+        <SonBaktiklarin />
         <Sektorler />
         <HesaplamaSection />
         <NedenBiz />
-
         <ReferencesSection />
         <ReviewsSection />
         <CtaSection />
