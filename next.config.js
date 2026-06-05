@@ -14,6 +14,12 @@ const nextConfig = {
   images: {
       unoptimized: true,
     remotePatterns: [
+
+      {
+  protocol: 'https',
+  hostname: 'cdn.baskiurunleri.com',
+  pathname: '/**',
+},
       {
         protocol: 'https',
         hostname: '*.r2.cloudflarestorage.com',
