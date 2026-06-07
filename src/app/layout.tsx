@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+// @ts-ignore: CSS module declarations may not be present in this project setup
 import './globals.css'
 
 import { Toaster } from 'react-hot-toast'

@@ -16,8 +16,7 @@ import Footer from '@/components/layout/Footer'
 import BaskiCozumleri from '@/components/sections/BaskiCozumleri'
 import KampanyaSerit from '@/components/sections/KampanyaSerit'
 import Yelenbayrak from '@/components/sections/YelkenBayrak'
-import Kampanya from '@/components/sections/kampanyaSection'
-
+import GuvenRozetleri from '@/components/sections/GuvenRozetleri'
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://baskiurunleri.com'
 
@@ -67,6 +66,7 @@ export default function Home() {
           <HeroCarousel />
         </div>
         <BaskiCozumleri />
+        <GuvenRozetleri />
         <KampanyaSerit />
         <Favorilerim />
         <UrunlerSection />
