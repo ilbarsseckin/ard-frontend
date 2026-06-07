@@ -12,6 +12,7 @@ import { useState, useRef, useEffect } from 'react'
 import api from '@/lib/api'
 import Logo from '@/components/ui/Logo'
 import { useFavorites } from '@/hooks/useFavorites'
+import { useAuthStore } from '@/lib/store/auth'
 
 interface Category {
   id: string
@@ -67,6 +68,7 @@ export default function Navbar() {
   const favCount = favorites.length
   const { theme, toggle } = useTheme()
   const router = useRouter()
+  const user = useAuthStore(s => s.user)
 
   const [categories, setCategories] = useState<Category[]>([])
   const [allCategories, setAllCategories] = useState<Category[]>([])
@@ -86,7 +88,6 @@ export default function Navbar() {
     ]).then(([catRes, prodRes]) => {
       const raw: Category[] = catRes.data.data || []
 
-      // Tree veya flat — her ikisini de düzleştir
       const flat: Category[] = []
       raw.forEach((cat) => {
         flat.push({ ...cat, parentId: cat.parentId ?? null })
@@ -102,7 +103,6 @@ export default function Navbar() {
       setAllCategories(flat)
       setProducts(prodRes.data.data || [])
 
-      // Debug — kaç adet ana + alt kategori var
       console.log('[Navbar] Ana kategori:', mainCats.length, '| Toplam:', flat.length)
     }).catch(err => console.error('Navbar veri yüklenemedi:', err))
   }, [])
@@ -151,8 +151,11 @@ export default function Navbar() {
   const featuredCards = megaProducts.filter(p => p.featured).slice(0, 8)
   const cardsList = featuredCards.length >= 4 ? featuredCards : megaProducts.slice(0, 8)
 
-  // ÖNEMLİ: mega menü hover olduğunda her zaman açılsın — boş bile olsa
   const showMega = !!megaOpen
+
+  // Kullanıcı adının baş harfi
+  const userInitial = user?.name?.charAt(0).toUpperCase() || ''
+  const userFirstName = user?.name?.split(' ')[0] || ''
 
   return (
     <>
@@ -189,9 +192,9 @@ export default function Navbar() {
             <Link href="/" className="flex items-center flex-shrink-0">
               <Logo className="h-7 md:h-9" />
             </Link>
-            {/* Arama — masaüstünde form, mobilde sadece ikon */}
+
             <form onSubmit={handleSearch} className="hidden md:flex flex-1 max-w-[640px]">
-              <div className="relative">
+              <div className="relative w-full">
                 <input
                   value={search}
                   onChange={e => setSearch(e.target.value)}
@@ -206,7 +209,8 @@ export default function Navbar() {
                 </button>
               </div>
             </form>
-            {/* Mobil arama ikonu — mobil menüde arama var */}
+
+            {/* Mobil sağ ikonlar */}
             <div className="md:hidden flex items-center gap-2 ml-auto">
               <Link href="/sepet" className="relative w-10 h-10 rounded-xl flex items-center justify-center"
                 style={{ border: '1px solid var(--border)' }}>
@@ -223,16 +227,33 @@ export default function Navbar() {
                 {mobileMenu ? <X size={16} /> : <Menu size={16} />}
               </button>
             </div>
+
+            {/* Masaüstü sağ butonlar */}
             <div className="hidden md:flex items-center gap-2 flex-shrink-0">
+
+              {/* Kullanıcı butonu — giriş yapıldıysa avatar + isim */}
               <Link href="/hesabim"
                 className="hidden md:flex items-center gap-2 px-3 py-2 rounded-xl transition-colors"
                 style={{ border: '1px solid var(--border)', background: 'var(--surface)' }}>
-                <User size={15} style={{ color: 'var(--text-secondary)' }} />
+                {user ? (
+                  <div className="w-7 h-7 rounded-full flex items-center justify-center text-white text-[11px] font-bold flex-shrink-0"
+                    style={{ background: '#F4821F' }}>
+                    {userInitial}
+                  </div>
+                ) : (
+                  <User size={15} style={{ color: 'var(--text-secondary)' }} />
+                )}
                 <div className="flex flex-col leading-tight">
-                  <span className="text-[11px] font-bold whitespace-nowrap" style={{ color: 'var(--text-primary)' }}>Üye Giriş</span>
-                  <span className="text-[10px] whitespace-nowrap" style={{ color: 'var(--text-muted)' }}>veya Üye Ol</span>
+                  <span className="text-[11px] font-bold whitespace-nowrap" style={{ color: 'var(--text-primary)' }}>
+                    {user ? userFirstName : 'Üye Giriş'}
+                  </span>
+                  <span className="text-[10px] whitespace-nowrap" style={{ color: 'var(--text-muted)' }}>
+                    {user ? 'Hesabım' : 'veya Üye Ol'}
+                  </span>
                 </div>
               </Link>
+
+              {/* Favoriler */}
               <Link href="/favorilerim"
                 title={`${favCount} favori ürün`}
                 className="relative w-11 h-11 rounded-xl flex items-center justify-center transition-colors"
@@ -245,6 +266,8 @@ export default function Navbar() {
                   </span>
                 )}
               </Link>
+
+              {/* Sepet */}
               <Link href="/sepet"
                 className="hidden md:flex items-center gap-2 px-3 py-2 rounded-xl transition-colors"
                 style={{ border: '1px solid var(--border)', background: 'var(--surface)' }}>
@@ -258,11 +281,6 @@ export default function Navbar() {
                 </div>
                 <span className="text-[12px] font-bold whitespace-nowrap" style={{ color: 'var(--text-primary)' }}>Sepetim</span>
               </Link>
-              <button onClick={() => setMobileMenu(o => !o)}
-                className="md:hidden w-10 h-10 rounded-xl flex items-center justify-center"
-                style={{ border: '1px solid var(--border)' }}>
-                {mobileMenu ? <X size={16} /> : <Menu size={16} />}
-              </button>
             </div>
           </div>
         </div>
@@ -335,8 +353,17 @@ export default function Navbar() {
               <Link href="/hesabim" onClick={() => setMobileMenu(false)}
                 className="flex items-center gap-2 px-3 py-2.5 rounded-xl"
                 style={{ background: 'var(--bg-secondary)' }}>
-                <User size={14} />
-                <span className="text-[13px] font-bold">Üye Giriş / Üye Ol</span>
+                {user ? (
+                  <div className="w-7 h-7 rounded-full flex items-center justify-center text-white text-[11px] font-bold"
+                    style={{ background: '#F4821F' }}>
+                    {userInitial}
+                  </div>
+                ) : (
+                  <User size={14} />
+                )}
+                <span className="text-[13px] font-bold">
+                  {user ? `${userFirstName} · Hesabım` : 'Üye Giriş / Üye Ol'}
+                </span>
               </Link>
               <Link href="/sepet" onClick={() => setMobileMenu(false)}
                 className="flex items-center justify-between px-3 py-2.5 rounded-xl"
@@ -366,7 +393,7 @@ export default function Navbar() {
         )}
       </header>
 
-      {/* ════════════════════ MEGA MENÜ ════════════════════ */}
+      {/* MEGA MENÜ */}
       {showMega && (
         <div
           className="fixed left-0 right-0 z-40 shadow-2xl"
@@ -380,13 +407,11 @@ export default function Navbar() {
           onMouseLeave={closeMega}
         >
           <div className="max-w-7xl mx-auto px-6 py-7">
-
             <h3 className="text-[24px] font-black tracking-[-0.5px] mb-5"
               style={{ color: 'var(--text-primary)' }}>
               {activeKat?.icon} {activeKat?.name}
             </h3>
 
-            {/* DURUM 1: Alt kategori VAR — solda 2 kolon liste + sağda 4 kolon kart */}
             {subCats.length > 0 && (
               <div className="flex gap-10">
                 <div className="flex-1 min-w-0">
@@ -417,7 +442,6 @@ export default function Navbar() {
                     Tüm Ürünler <ArrowRight size={13} />
                   </Link>
                 </div>
-
                 {cardsList.length > 0 && (
                   <div className="w-[560px] flex-shrink-0">
                     <div className="grid grid-cols-4 gap-3">
@@ -448,7 +472,6 @@ export default function Navbar() {
               </div>
             )}
 
-            {/* DURUM 2: Alt kategori YOK ama ürün VAR */}
             {subCats.length === 0 && cardsList.length > 0 && (
               <div className="flex gap-10">
                 <div className="flex-1">
@@ -472,7 +495,6 @@ export default function Navbar() {
               </div>
             )}
 
-            {/* DURUM 3: HİÇ İÇERİK YOK — uyarı göster */}
             {subCats.length === 0 && cardsList.length === 0 && (
               <div className="py-12 text-center">
                 <Package size={32} className="mx-auto mb-3 opacity-40" />
