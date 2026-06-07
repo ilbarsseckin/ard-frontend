@@ -7,11 +7,12 @@ import toast from 'react-hot-toast'
 import {
   Plus, Edit2, Trash2, Save, X, Loader2,
   ArrowUp, ArrowDown, Eye, EyeOff, Megaphone, Upload,
-  Link as LinkIcon, Monitor, Smartphone,
+  Link as LinkIcon, Monitor, Smartphone, ExternalLink, Copy,
 } from 'lucide-react'
 
 interface Campaign {
   id: string
+  slug?: string
   label?: string
   title: string
   description?: string
@@ -31,6 +32,7 @@ interface Campaign {
 }
 
 interface FormData {
+  slug: string
   label: string
   title: string
   description: string
@@ -47,6 +49,7 @@ interface FormData {
 }
 
 const EMPTY_FORM: FormData = {
+  slug: '',
   label: '', title: '', description: '',
   badgeText: '', badgeColor: '#F4821F',
   imageUrl: '', mobileImageUrl: '',
@@ -62,6 +65,17 @@ const PRESET_COLORS = [
 ]
 
 type ImageVariant = 'desktop' | 'mobile'
+
+function toSlug(text: string): string {
+  return text
+    .toLowerCase()
+    .replace(/ğ/g, 'g').replace(/ü/g, 'u').replace(/ş/g, 's')
+    .replace(/ı/g, 'i').replace(/ö/g, 'o').replace(/ç/g, 'c')
+    .replace(/[^a-z0-9\s-]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .slice(0, 80)
+}
 
 function KampanyalarInner() {
   const [items, setItems] = useState<Campaign[]>([])
@@ -100,6 +114,7 @@ function KampanyalarInner() {
   const openEdit = (c: Campaign) => {
     setEditId(c.id)
     setForm({
+      slug: c.slug || '',
       label: c.label || '',
       title: c.title || '',
       description: c.description || '',
@@ -120,13 +135,9 @@ function KampanyalarInner() {
   }
 
   const handleImageUpload = async (file: File, variant: ImageVariant) => {
-    if (file.size > 10 * 1024 * 1024) {
-      toast.error('Resim 10 MB üstü')
-      return
-    }
+    if (file.size > 10 * 1024 * 1024) { toast.error('Resim 10 MB üstü'); return }
     const setUploading = variant === 'mobile' ? setUploadingMobileImage : setUploadingImage
     const formField = variant === 'mobile' ? 'mobileImageUrl' : 'imageUrl'
-
     setUploading(true)
     try {
       const fd = new FormData()
@@ -156,6 +167,7 @@ function KampanyalarInner() {
 
     setSaving(true)
     const body: any = {
+      slug: form.slug.trim() || null,
       label: form.label || null,
       title: form.title,
       description: form.description || null,
@@ -192,9 +204,7 @@ function KampanyalarInner() {
     try {
       await api.patch(`/api/admin/campaigns/${c.id}/toggle`)
       load()
-    } catch {
-      toast.error('Durum değiştirilemedi')
-    }
+    } catch { toast.error('Durum değiştirilemedi') }
   }
 
   const handleDelete = async (c: Campaign) => {
@@ -213,15 +223,18 @@ function KampanyalarInner() {
     const idx = sorted.findIndex(x => x.id === c.id)
     const swap = dir === 'up' ? idx - 1 : idx + 1
     if (swap < 0 || swap >= sorted.length) return
-
     const reordered = [...sorted]
     ;[reordered[idx], reordered[swap]] = [reordered[swap], reordered[idx]]
     try {
       await api.post('/api/admin/campaigns/reorder', { ids: reordered.map(x => x.id) })
       load()
-    } catch {
-      toast.error('Sıralama başarısız')
-    }
+    } catch { toast.error('Sıralama başarısız') }
+  }
+
+  const copyLpUrl = (slug: string) => {
+    const url = `https://baskiurunleri.com/lp/${slug}`
+    navigator.clipboard.writeText(url)
+    toast.success('Link kopyalandı!')
   }
 
   const sorted = [...items].sort((a, b) => a.sortOrder - b.sortOrder)
@@ -242,24 +255,17 @@ function KampanyalarInner() {
           {isMobile ? <Smartphone size={13} /> : <Monitor size={13} />}
           {isMobile ? 'Mobil Görsel (opsiyonel)' : 'Banner Görseli *'}
         </label>
-
         <div className="flex gap-1 mb-2">
-          <button type="button" onClick={() => setMode('url')}
-            className="flex-1 text-[11px] py-1.5 rounded-lg font-medium transition-colors"
-            style={mode === 'url'
-              ? { background: 'rgba(244,130,31,0.1)', color: '#F4821F', border: '1px solid rgba(244,130,31,0.2)' }
-              : { color: 'var(--text-muted)', border: '1px solid var(--border)' }}>
-            <LinkIcon size={11} className="inline mr-1" /> URL
-          </button>
-          <button type="button" onClick={() => setMode('upload')}
-            className="flex-1 text-[11px] py-1.5 rounded-lg font-medium transition-colors"
-            style={mode === 'upload'
-              ? { background: 'rgba(244,130,31,0.1)', color: '#F4821F', border: '1px solid rgba(244,130,31,0.2)' }
-              : { color: 'var(--text-muted)', border: '1px solid var(--border)' }}>
-            <Upload size={11} className="inline mr-1" /> Yükle
-          </button>
+          {(['url', 'upload'] as const).map(m => (
+            <button key={m} type="button" onClick={() => setMode(m)}
+              className="flex-1 text-[11px] py-1.5 rounded-lg font-medium transition-colors"
+              style={mode === m
+                ? { background: 'rgba(244,130,31,0.1)', color: '#F4821F', border: '1px solid rgba(244,130,31,0.2)' }
+                : { color: 'var(--text-muted)', border: '1px solid var(--border)' }}>
+              {m === 'url' ? <><LinkIcon size={11} className="inline mr-1" />URL</> : <><Upload size={11} className="inline mr-1" />Yükle</>}
+            </button>
+          ))}
         </div>
-
         {mode === 'url' ? (
           <input value={value}
             onChange={e => setForm(f => ({ ...f, [field]: e.target.value }))}
@@ -271,16 +277,13 @@ function KampanyalarInner() {
             className="w-full py-4 rounded-lg flex items-center justify-center cursor-pointer text-[12px]"
             style={{ border: '1px dashed var(--border)', color: 'var(--text-muted)' }}>
             {uploading
-              ? <><Loader2 size={14} className="animate-spin mr-1.5" /> Yükleniyor...</>
-              : <><Upload size={14} className="mr-1.5" /> Dosya seç (maks. 10 MB)</>}
-            <input ref={ref} type="file" accept="image/*" hidden
-              onChange={e => handleFileSelect(e, variant)} />
+              ? <><Loader2 size={14} className="animate-spin mr-1.5" />Yükleniyor...</>
+              : <><Upload size={14} className="mr-1.5" />Dosya seç (maks. 10 MB)</>}
+            <input ref={ref} type="file" accept="image/*" hidden onChange={e => handleFileSelect(e, variant)} />
           </div>
         )}
-
         {value && (
           <div className="mt-2 rounded-lg overflow-hidden" style={{ border: '1px solid var(--border)' }}>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={value} alt="" className="w-full h-24 object-cover" />
           </div>
         )}
@@ -291,17 +294,12 @@ function KampanyalarInner() {
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg-primary)' }}>
       <AdminNavbar />
-
       <div className="max-w-5xl mx-auto px-6 py-8">
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-2">
             <Megaphone size={20} style={{ color: '#F4821F' }} />
-            <h1 className="text-[20px] font-bold" style={{ color: 'var(--text-primary)' }}>
-              Kampanyalar
-            </h1>
-            <span className="text-[12px]" style={{ color: 'var(--text-muted)' }}>
-              ({items.length})
-            </span>
+            <h1 className="text-[20px] font-bold" style={{ color: 'var(--text-primary)' }}>Kampanyalar</h1>
+            <span className="text-[12px]" style={{ color: 'var(--text-muted)' }}>({items.length})</span>
           </div>
           <button onClick={openCreate}
             className="flex items-center gap-1.5 text-[13px] font-semibold px-3.5 py-2 rounded-lg text-white"
@@ -326,7 +324,6 @@ function KampanyalarInner() {
               <div key={c.id}
                 className="flex items-center gap-4 p-3 rounded-2xl"
                 style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', opacity: c.active ? 1 : 0.55 }}>
-
                 <div className="flex flex-col gap-0.5">
                   <button onClick={() => handleReorder(c, 'up')} disabled={i === 0}
                     className="p-1 rounded disabled:opacity-25" style={{ color: 'var(--text-muted)' }}>
@@ -340,10 +337,7 @@ function KampanyalarInner() {
 
                 <div className="relative w-28 h-16 rounded-lg overflow-hidden shrink-0"
                   style={{ background: c.backgroundColor || 'var(--surface)' }}>
-                  {c.imageUrl && (
-                    /* eslint-disable-next-line @next/next/no-img-element */
-                    <img src={c.imageUrl} alt="" className="w-full h-full object-cover" />
-                  )}
+                  {c.imageUrl && <img src={c.imageUrl} alt="" className="w-full h-full object-cover" />}
                   {c.badgeText && (
                     <span className="absolute top-1 left-1 text-[9px] font-bold px-1.5 py-0.5 rounded text-white"
                       style={{ background: c.badgeColor || '#F4821F' }}>
@@ -361,9 +355,29 @@ function KampanyalarInner() {
                   <p className="text-[14px] font-bold truncate" style={{ color: 'var(--text-primary)' }}>
                     {c.title}
                   </p>
-                  {c.description && (
-                    <p className="text-[11px] truncate" style={{ color: 'var(--text-muted)' }}>
-                      {c.description}
+                  {/* Landing page linki */}
+                  {c.slug ? (
+                    <div className="flex items-center gap-2 mt-1">
+                      <code className="text-[10px] px-2 py-0.5 rounded font-mono"
+                        style={{ background: 'rgba(244,130,31,0.1)', color: '#F4821F' }}>
+                        /lp/{c.slug}
+                      </code>
+                      <button onClick={() => copyLpUrl(c.slug!)}
+                        title="Linki kopyala"
+                        className="p-0.5 hover:text-[#F4821F] transition-colors"
+                        style={{ color: 'var(--text-muted)' }}>
+                        <Copy size={11} />
+                      </button>
+                      <a href={`/lp/${c.slug}`} target="_blank" rel="noopener noreferrer"
+                        title="Önizle"
+                        className="p-0.5 hover:text-[#F4821F] transition-colors"
+                        style={{ color: 'var(--text-muted)' }}>
+                        <ExternalLink size={11} />
+                      </a>
+                    </div>
+                  ) : (
+                    <p className="text-[10px] mt-1 italic" style={{ color: 'var(--text-muted)' }}>
+                      Landing page için slug ekle
                     </p>
                   )}
                 </div>
@@ -373,8 +387,7 @@ function KampanyalarInner() {
                     className="p-2 rounded-lg" style={{ color: c.active ? '#16a34a' : 'var(--text-muted)' }}>
                     {c.active ? <Eye size={15} /> : <EyeOff size={15} />}
                   </button>
-                  <button onClick={() => openEdit(c)}
-                    className="p-2 rounded-lg" style={{ color: 'var(--text-muted)' }}>
+                  <button onClick={() => openEdit(c)} className="p-2 rounded-lg" style={{ color: 'var(--text-muted)' }}>
                     <Edit2 size={15} />
                   </button>
                   <button onClick={() => handleDelete(c)}
@@ -408,15 +421,53 @@ function KampanyalarInner() {
             </div>
 
             <div className="p-5 space-y-4">
+
               <Field label="Üst Etiket (opsiyonel)">
                 <Input value={form.label} onChange={v => setForm(f => ({ ...f, label: v }))}
                   placeholder="örn. FIRSAT" />
               </Field>
 
               <Field label="Başlık *">
-                <Input value={form.title} onChange={v => setForm(f => ({ ...f, title: v }))}
+                <Input value={form.title}
+                  onChange={v => {
+                    setForm(f => ({
+                      ...f,
+                      title: v,
+                      // Slug otomatik doldur (sadece yeni kampanyada ve slug boşsa)
+                      slug: f.slug === '' ? toSlug(v) : f.slug,
+                    }))
+                  }}
                   placeholder="örn. 3 Yelken Bayrak Alana Kartvizit 1 TL" />
               </Field>
+
+              {/* SLUG ALANI */}
+              <div>
+                <label className="block text-[12px] font-semibold mb-1" style={{ color: 'var(--text-secondary)' }}>
+                  Landing Page Slug
+                  <span className="ml-1 text-[10px] font-normal" style={{ color: 'var(--text-muted)' }}>
+                    (Instagram reklamı için URL)
+                  </span>
+                </label>
+                <div className="flex items-center rounded-lg overflow-hidden"
+                  style={{ border: '1px solid var(--border)', background: 'var(--surface)' }}>
+                  <span className="px-3 py-2 text-[12px] flex-shrink-0"
+                    style={{ background: 'var(--bg-secondary)', color: 'var(--text-muted)', borderRight: '1px solid var(--border)' }}>
+                    /lp/
+                  </span>
+                  <input
+                    value={form.slug}
+                    onChange={e => setForm(f => ({ ...f, slug: toSlug(e.target.value) }))}
+                    placeholder="3-yelken-bayrak-kartvizit-1tl"
+                    className="flex-1 px-3 py-2 text-[13px] outline-none font-mono"
+                    style={{ background: 'transparent', color: 'var(--text-primary)' }}
+                  />
+                </div>
+                {form.slug && (
+                  <p className="text-[11px] mt-1" style={{ color: '#F4821F' }}>
+                    🔗 baskiurunleri.com/lp/{form.slug}
+                  </p>
+                )}
+              </div>
 
               <Field label="Açıklama (opsiyonel)">
                 <textarea value={form.description}
@@ -446,11 +497,11 @@ function KampanyalarInner() {
               <div className="grid grid-cols-2 gap-3">
                 <Field label="Buton Metni">
                   <Input value={form.ctaText} onChange={v => setForm(f => ({ ...f, ctaText: v }))}
-                    placeholder="örn. İncele" />
+                    placeholder="örn. Hemen Sipariş Ver" />
                 </Field>
                 <Field label="Buton Linki">
                   <Input value={form.ctaLink} onChange={v => setForm(f => ({ ...f, ctaLink: v }))}
-                    placeholder="/katalog" />
+                    placeholder="/katalog/yelken-bayrak" />
                 </Field>
               </div>
 
@@ -497,7 +548,6 @@ function KampanyalarInner() {
   )
 }
 
-// ─── küçük yardımcı bileşenler ───
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
@@ -526,7 +576,8 @@ function ColorPicker({ value, onChange }: { value: string; onChange: (v: string)
       <div className="flex flex-wrap gap-1">
         {PRESET_COLORS.map(col => (
           <button key={col} type="button" onClick={() => onChange(col)}
-            className="w-5 h-5 rounded" style={{ background: col, border: value === col ? '2px solid var(--text-primary)' : '1px solid var(--border)' }} />
+            className="w-5 h-5 rounded"
+            style={{ background: col, border: value === col ? '2px solid var(--text-primary)' : '1px solid var(--border)' }} />
         ))}
       </div>
     </div>
