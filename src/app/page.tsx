@@ -17,6 +17,7 @@ import BaskiCozumleri from '@/components/sections/BaskiCozumleri'
 import KampanyaSerit from '@/components/sections/KampanyaSerit'
 import Yelenbayrak from '@/components/sections/YelkenBayrak'
 import GuvenRozetleri from '@/components/sections/GuvenRozetleri'
+import FloatingCardsSection from '@/components/sections/FloatingCardsSection'
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://baskiurunleri.com'
 
@@ -68,6 +69,8 @@ export default function Home() {
         <BaskiCozumleri />
         <GuvenRozetleri />
         <KampanyaSerit />
+                <FloatingCardsSection />
+
         <Favorilerim />
         <UrunlerSection />
         <YeniGelenler />

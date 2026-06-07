@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+// @ts-ignore: Allow side-effect CSS import without type declarations
 import './globals.css'
 import { Toaster } from 'react-hot-toast'
 import { ThemeProvider } from '@/components/layout/ThemeProvider'
