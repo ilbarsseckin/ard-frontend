@@ -36,13 +36,13 @@ interface Product {
 }
 
 const topUtility = [
-  { href: '/kampanyalar',                label: 'Kampanyalar',                  icon: Sparkles  },
-  { href: '/nasil-siparis',              label: 'Nasıl Sipariş Verebilirim?',   icon: FileText  },
-  { href: '/tasarim-yukleme',            label: 'Tasarım Yükleme ve Onay',      icon: Upload    },
-  { href: '/tasarim-destegi',            label: 'Ücretsiz Tasarım Desteği',     icon: Sparkles  },
-  { href: '/blog',                       label: 'Blog',                         icon: BookOpen  },
-  { href: '/yardim',                     label: 'Yardım Merkezi',               icon: HelpCircle },
-  { href: '/iletisim',                   label: 'İletişim',                     icon: Phone     },
+  { href: '/kampanyalar',     label: 'Kampanyalar',                icon: Sparkles   },
+  { href: '/nasil-siparis',   label: 'Nasıl Sipariş Verebilirim?', icon: FileText   },
+  { href: '/tasarim-yukleme', label: 'Tasarım Yükleme ve Onay',   icon: Upload     },
+  { href: '/tasarim-destegi', label: 'Ücretsiz Tasarım Desteği',  icon: Sparkles   },
+  { href: '/blog',            label: 'Blog',                       icon: BookOpen   },
+  { href: '/yardim',          label: 'Yardım Merkezi',             icon: HelpCircle },
+  { href: '/iletisim',        label: 'İletişim',                   icon: Phone      },
 ]
 
 const kurumsal = [
@@ -53,12 +53,10 @@ const kurumsal = [
 ]
 
 function getBadge(slug: string): { label: string; bg: string; color: string } | null {
-  if (slug.startsWith('hizli-') || slug === 'acil-baski') {
+  if (slug.startsWith('hizli-') || slug === 'acil-baski')
     return { label: 'Acil', bg: '#DC2626', color: '#fff' }
-  }
-  if (slug.startsWith('yaldizli-') || slug.includes('yaldiz')) {
+  if (slug.startsWith('yaldizli-') || slug.includes('yaldiz'))
     return { label: 'Yaldızlı', bg: '#F59E0B', color: '#fff' }
-  }
   return null
 }
 
@@ -73,13 +71,14 @@ export default function Navbar() {
   const [categories, setCategories] = useState<Category[]>([])
   const [allCategories, setAllCategories] = useState<Category[]>([])
   const [products, setProducts] = useState<Product[]>([])
-
   const [search, setSearch] = useState('')
+  const [mobileSearch, setMobileSearch] = useState(false)
   const [megaOpen, setMegaOpen] = useState<string | null>(null)
   const [kurumsalOpen, setKurumsalOpen] = useState(false)
   const [mobileMenu, setMobileMenu] = useState(false)
   const kurumsalRef = useRef<HTMLDivElement>(null)
   const megaTimer = useRef<NodeJS.Timeout>()
+  const mobileSearchRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     Promise.all([
@@ -87,73 +86,56 @@ export default function Navbar() {
       api.get('/api/catalog/products'),
     ]).then(([catRes, prodRes]) => {
       const raw: Category[] = catRes.data.data || []
-
       const flat: Category[] = []
-      raw.forEach((cat) => {
+      raw.forEach(cat => {
         flat.push({ ...cat, parentId: cat.parentId ?? null })
-        if (cat.children && cat.children.length > 0) {
-          cat.children.forEach((child) => {
-            flat.push({ ...child, parentId: cat.id })
-          })
+        if (cat.children?.length) {
+          cat.children.forEach(child => flat.push({ ...child, parentId: cat.id }))
         }
       })
-
-      const mainCats = flat.filter((c) => !c.parentId)
-      setCategories(mainCats)
+      setCategories(flat.filter(c => !c.parentId))
       setAllCategories(flat)
       setProducts(prodRes.data.data || [])
-
-      console.log('[Navbar] Ana kategori:', mainCats.length, '| Toplam:', flat.length)
     }).catch(err => console.error('Navbar veri yüklenemedi:', err))
   }, [])
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
-      if (kurumsalRef.current && !kurumsalRef.current.contains(e.target as Node)) {
+      if (kurumsalRef.current && !kurumsalRef.current.contains(e.target as Node))
         setKurumsalOpen(false)
-      }
     }
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
   }, [])
+
+  // Mobil arama açılınca input'a focus
+  useEffect(() => {
+    if (mobileSearch) setTimeout(() => mobileSearchRef.current?.focus(), 100)
+  }, [mobileSearch])
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()
     if (!search.trim()) return
     router.push(`/urunler?q=${encodeURIComponent(search.trim())}`)
     setSearch('')
+    setMobileSearch(false)
   }
 
-  const openMega = (slug: string) => {
-    clearTimeout(megaTimer.current)
-    setMegaOpen(slug)
-  }
-
-  const closeMega = () => {
-    megaTimer.current = setTimeout(() => setMegaOpen(null), 150)
-  }
-
+  const openMega = (slug: string) => { clearTimeout(megaTimer.current); setMegaOpen(slug) }
+  const closeMega = () => { megaTimer.current = setTimeout(() => setMegaOpen(null), 150) }
   const keepMega = () => clearTimeout(megaTimer.current)
 
   const activeKat = categories.find(k => k.slug === megaOpen)
-
   const subCats = activeKat
-    ? allCategories
-        .filter(c => c.parentId === activeKat.id)
-        .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
+    ? allCategories.filter(c => c.parentId === activeKat.id).sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
     : []
-
   const subSlugs = subCats.map(c => c.slug)
   const megaProducts = megaOpen
     ? products.filter(p => p.categorySlug === megaOpen || subSlugs.includes(p.categorySlug))
     : []
-
   const featuredCards = megaProducts.filter(p => p.featured).slice(0, 8)
   const cardsList = featuredCards.length >= 4 ? featuredCards : megaProducts.slice(0, 8)
 
-  const showMega = !!megaOpen
-
-  // Kullanıcı adının baş harfi
   const userInitial = user?.name?.charAt(0).toUpperCase() || ''
   const userFirstName = user?.name?.split(' ')[0] || ''
 
@@ -161,7 +143,7 @@ export default function Navbar() {
     <>
       <header className="sticky top-0 z-50">
 
-        {/* ROW 1 */}
+        {/* ROW 1 — Üst bar (masaüstü) */}
         <div className="hidden md:block"
           style={{ background: 'var(--bg-secondary)', borderBottom: '1px solid var(--border)' }}>
           <div className="max-w-7xl mx-auto px-6 h-9 flex items-center justify-between gap-4">
@@ -175,35 +157,31 @@ export default function Navbar() {
                 </Link>
               ))}
             </div>
-            <div className="flex items-center gap-3 flex-shrink-0">
-              <button onClick={toggle}
-                title={theme === 'dark' ? 'Açık tema' : 'Koyu tema'}
-                className="flex items-center justify-center w-6 h-6 rounded transition-colors hover:bg-orange-500/10"
-                style={{ color: 'var(--text-muted)' }}>
-                {theme === 'dark' ? <Sun size={12} /> : <Moon size={12} />}
-              </button>
-            </div>
+            <button onClick={toggle}
+              className="flex items-center justify-center w-6 h-6 rounded transition-colors hover:bg-orange-500/10"
+              style={{ color: 'var(--text-muted)' }}>
+              {theme === 'dark' ? <Sun size={12} /> : <Moon size={12} />}
+            </button>
           </div>
         </div>
 
-        {/* ROW 2 */}
+        {/* ROW 2 — Ana bar */}
         <div style={{ background: 'var(--bg-primary)', borderBottom: '1px solid var(--border)' }}>
           <div className="max-w-7xl mx-auto px-4 md:px-6 h-[60px] md:h-[72px] flex items-center gap-3 md:gap-6">
+
             <Link href="/" className="flex items-center flex-shrink-0">
               <Logo className="h-7 md:h-9" />
             </Link>
 
+            {/* Masaüstü arama */}
             <form onSubmit={handleSearch} className="hidden md:flex flex-1 max-w-[640px]">
               <div className="relative w-full">
-                <input
-                  value={search}
-                  onChange={e => setSearch(e.target.value)}
+                <input value={search} onChange={e => setSearch(e.target.value)}
                   placeholder="Ne bastırmak istiyorsunuz?"
                   className="w-full pl-4 pr-12 py-3 text-[13px] rounded-xl outline-none transition-all"
-                  style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
-                />
+                  style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', color: 'var(--text-primary)' }} />
                 <button type="submit"
-                  className="absolute right-1.5 top-1/2 -translate-y-1/2 w-9 h-9 rounded-lg flex items-center justify-center transition-colors"
+                  className="absolute right-1.5 top-1/2 -translate-y-1/2 w-9 h-9 rounded-lg flex items-center justify-center"
                   style={{ background: '#F4821F', color: 'white' }}>
                   <Search size={14} />
                 </button>
@@ -211,7 +189,18 @@ export default function Navbar() {
             </form>
 
             {/* Mobil sağ ikonlar */}
-            <div className="md:hidden flex items-center gap-2 ml-auto">
+            <div className="md:hidden flex items-center gap-1.5 ml-auto">
+
+              {/* Arama butonu */}
+              <button onClick={() => { setMobileSearch(o => !o); setMobileMenu(false) }}
+                className="w-10 h-10 rounded-xl flex items-center justify-center transition-colors"
+                style={{ border: '1px solid var(--border)', background: mobileSearch ? 'rgba(244,130,31,0.1)' : 'transparent' }}>
+                {mobileSearch
+                  ? <X size={15} style={{ color: '#F4821F' }} />
+                  : <Search size={15} style={{ color: 'var(--text-secondary)' }} />}
+              </button>
+
+              {/* Sepet */}
               <Link href="/sepet" className="relative w-10 h-10 rounded-xl flex items-center justify-center"
                 style={{ border: '1px solid var(--border)' }}>
                 <ShoppingCart size={15} style={{ color: 'var(--text-secondary)' }} />
@@ -221,19 +210,19 @@ export default function Navbar() {
                   </span>
                 )}
               </Link>
-              <button onClick={() => setMobileMenu(o => !o)}
+
+              {/* Hamburger */}
+              <button onClick={() => { setMobileMenu(o => !o); setMobileSearch(false) }}
                 className="w-10 h-10 rounded-xl flex items-center justify-center"
                 style={{ border: '1px solid var(--border)' }}>
-                {mobileMenu ? <X size={16} /> : <Menu size={16} />}
+                {mobileMenu ? <X size={16} style={{ color: 'var(--text-secondary)' }} /> : <Menu size={16} style={{ color: 'var(--text-secondary)' }} />}
               </button>
             </div>
 
             {/* Masaüstü sağ butonlar */}
             <div className="hidden md:flex items-center gap-2 flex-shrink-0">
-
-              {/* Kullanıcı butonu — giriş yapıldıysa avatar + isim */}
               <Link href="/hesabim"
-                className="hidden md:flex items-center gap-2 px-3 py-2 rounded-xl transition-colors"
+                className="flex items-center gap-2 px-3 py-2 rounded-xl transition-colors"
                 style={{ border: '1px solid var(--border)', background: 'var(--surface)' }}>
                 {user ? (
                   <div className="w-7 h-7 rounded-full flex items-center justify-center text-white text-[11px] font-bold flex-shrink-0"
@@ -253,10 +242,8 @@ export default function Navbar() {
                 </div>
               </Link>
 
-              {/* Favoriler */}
               <Link href="/favorilerim"
-                title={`${favCount} favori ürün`}
-                className="relative w-11 h-11 rounded-xl flex items-center justify-center transition-colors"
+                className="relative w-11 h-11 rounded-xl flex items-center justify-center"
                 style={{ border: '1px solid var(--border)', background: 'var(--surface)' }}>
                 <Heart size={15} fill={favCount > 0 ? '#F4821F' : 'none'}
                   style={{ color: favCount > 0 ? '#F4821F' : 'var(--text-secondary)' }} />
@@ -267,9 +254,8 @@ export default function Navbar() {
                 )}
               </Link>
 
-              {/* Sepet */}
               <Link href="/sepet"
-                className="hidden md:flex items-center gap-2 px-3 py-2 rounded-xl transition-colors"
+                className="flex items-center gap-2 px-3 py-2 rounded-xl transition-colors"
                 style={{ border: '1px solid var(--border)', background: 'var(--surface)' }}>
                 <div className="relative">
                   <ShoppingCart size={15} style={{ color: 'var(--text-secondary)' }} />
@@ -285,16 +271,35 @@ export default function Navbar() {
           </div>
         </div>
 
-        {/* ROW 3 — KATEGORİ BAR */}
+        {/* MOBİL ARAMA BARI */}
+        {mobileSearch && (
+          <div className="md:hidden px-4 py-3"
+            style={{ background: 'var(--bg-primary)', borderBottom: '1px solid var(--border)' }}>
+            <form onSubmit={handleSearch}>
+              <div className="relative">
+                <input ref={mobileSearchRef}
+                  value={search} onChange={e => setSearch(e.target.value)}
+                  placeholder="Ne bastırmak istiyorsunuz?"
+                  className="w-full pl-4 pr-12 py-3 text-[14px] rounded-xl outline-none"
+                  style={{ background: 'var(--bg-secondary)', border: '1px solid #F4821F', color: 'var(--text-primary)' }} />
+                <button type="submit"
+                  className="absolute right-1.5 top-1/2 -translate-y-1/2 w-9 h-9 rounded-lg flex items-center justify-center"
+                  style={{ background: '#F4821F', color: 'white' }}>
+                  <Search size={14} />
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
+
+        {/* ROW 3 — Kategori bar (masaüstü) */}
         <div className="hidden lg:block relative"
           style={{ background: 'var(--bg-primary)', borderBottom: '1px solid var(--border)' }}>
           <div className="max-w-7xl mx-auto px-4 h-12 flex items-center gap-0.5">
             {categories.map((k, idx) => {
               const isActive = megaOpen === k.slug
               return (
-                <div key={k.slug}
-                  onMouseEnter={() => openMega(k.slug)}
-                  onMouseLeave={closeMega}
+                <div key={k.slug} onMouseEnter={() => openMega(k.slug)} onMouseLeave={closeMega}
                   className="relative h-full flex items-center">
                   {idx > 0 && !isActive && (
                     <div className="w-px h-4 mx-0.5" style={{ background: 'var(--border)' }} />
@@ -310,11 +315,7 @@ export default function Navbar() {
                     {k.name}
                     {isActive && (
                       <span className="absolute left-1/2 -translate-x-1/2 -bottom-1.5 w-0 h-0"
-                        style={{
-                          borderLeft: '6px solid transparent',
-                          borderRight: '6px solid transparent',
-                          borderTop: '6px solid #F4821F',
-                        }} />
+                        style={{ borderLeft: '6px solid transparent', borderRight: '6px solid transparent', borderTop: '6px solid #F4821F' }} />
                     )}
                   </Link>
                 </div>
@@ -332,8 +333,7 @@ export default function Navbar() {
                 <div className="absolute top-full right-0 mt-1 w-[180px] rounded-xl overflow-hidden shadow-lg z-50"
                   style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
                   {kurumsal.map(l => (
-                    <Link key={l.href} href={l.href}
-                      onClick={() => setKurumsalOpen(false)}
+                    <Link key={l.href} href={l.href} onClick={() => setKurumsalOpen(false)}
                       className="block px-4 py-2.5 text-[13px] transition-colors hover:text-[#F4821F]"
                       style={{ color: 'var(--text-secondary)', borderBottom: '1px solid var(--border)' }}>
                       {l.label}
@@ -349,7 +349,7 @@ export default function Navbar() {
         {mobileMenu && (
           <div className="md:hidden absolute top-full left-0 right-0 shadow-lg z-50"
             style={{ background: 'var(--bg-card)', borderTop: '1px solid var(--border)' }}>
-            <div className="p-4 space-y-3">
+            <div className="p-4 space-y-3 max-h-[70vh] overflow-y-auto">
               <Link href="/hesabim" onClick={() => setMobileMenu(false)}
                 className="flex items-center gap-2 px-3 py-2.5 rounded-xl"
                 style={{ background: 'var(--bg-secondary)' }}>
@@ -359,56 +359,85 @@ export default function Navbar() {
                     {userInitial}
                   </div>
                 ) : (
-                  <User size={14} />
+                  <User size={14} style={{ color: 'var(--text-secondary)' }} />
                 )}
-                <span className="text-[13px] font-bold">
+                <span className="text-[13px] font-bold" style={{ color: 'var(--text-primary)' }}>
                   {user ? `${userFirstName} · Hesabım` : 'Üye Giriş / Üye Ol'}
                 </span>
               </Link>
+
+              <Link href="/favorilerim" onClick={() => setMobileMenu(false)}
+                className="flex items-center justify-between px-3 py-2.5 rounded-xl"
+                style={{ background: 'var(--bg-secondary)' }}>
+                <span className="flex items-center gap-2">
+                  <Heart size={14} fill={favCount > 0 ? '#F4821F' : 'none'}
+                    style={{ color: favCount > 0 ? '#F4821F' : 'var(--text-secondary)' }} />
+                  <span className="text-[13px] font-bold" style={{ color: 'var(--text-primary)' }}>Favorilerim</span>
+                </span>
+                {favCount > 0 && (
+                  <span className="px-2 py-0.5 rounded-full bg-[#F4821F] text-white text-[10px] font-bold">{favCount}</span>
+                )}
+              </Link>
+
               <Link href="/sepet" onClick={() => setMobileMenu(false)}
                 className="flex items-center justify-between px-3 py-2.5 rounded-xl"
                 style={{ background: 'var(--bg-secondary)' }}>
                 <span className="flex items-center gap-2">
-                  <ShoppingCart size={14} /> <span className="text-[13px] font-bold">Sepetim</span>
+                  <ShoppingCart size={14} style={{ color: 'var(--text-secondary)' }} />
+                  <span className="text-[13px] font-bold" style={{ color: 'var(--text-primary)' }}>Sepetim</span>
                 </span>
                 {itemCount > 0 && (
                   <span className="px-2 py-0.5 rounded-full bg-[#F4821F] text-white text-[10px] font-bold">{itemCount}</span>
                 )}
               </Link>
+
               <div>
                 <p className="text-[10px] font-bold uppercase tracking-[1px] mb-2 mt-3" style={{ color: 'var(--text-muted)' }}>
                   Kategoriler
                 </p>
                 {categories.map(k => (
-                  <Link key={k.slug} href={`/katalog/${k.slug}`}
-                    onClick={() => setMobileMenu(false)}
-                    className="flex items-center gap-2 px-3 py-2 rounded-lg text-[13px]"
+                  <Link key={k.slug} href={`/katalog/${k.slug}`} onClick={() => setMobileMenu(false)}
+                    className="flex items-center gap-2 px-3 py-2.5 rounded-lg text-[13px]"
                     style={{ color: 'var(--text-secondary)' }}>
                     {k.icon} {k.name}
                   </Link>
                 ))}
               </div>
+
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-[1px] mb-2 mt-3" style={{ color: 'var(--text-muted)' }}>
+                  Hızlı Bağlantılar
+                </p>
+                {topUtility.slice(0, 5).map(l => (
+                  <Link key={l.href} href={l.href} onClick={() => setMobileMenu(false)}
+                    className="flex items-center gap-2 px-3 py-2.5 rounded-lg text-[13px]"
+                    style={{ color: 'var(--text-secondary)' }}>
+                    <l.icon size={13} /> {l.label}
+                  </Link>
+                ))}
+              </div>
+
+              {/* Tema toggle */}
+              <button onClick={() => { toggle(); setMobileMenu(false) }}
+                className="flex items-center gap-2 px-3 py-2.5 rounded-xl w-full"
+                style={{ background: 'var(--bg-secondary)' }}>
+                {theme === 'dark' ? <Sun size={14} className="text-[#F4821F]" /> : <Moon size={14} style={{ color: 'var(--text-secondary)' }} />}
+                <span className="text-[13px] font-bold" style={{ color: 'var(--text-primary)' }}>
+                  {theme === 'dark' ? 'Açık Tema' : 'Koyu Tema'}
+                </span>
+              </button>
             </div>
           </div>
         )}
       </header>
 
       {/* MEGA MENÜ */}
-      {showMega && (
-        <div
-          className="fixed left-0 right-0 z-40 shadow-2xl"
-          style={{
-            top: 'calc(36px + 72px + 48px)',
-            background: 'var(--bg-card)',
-            borderTop: '1px solid var(--border)',
-            borderBottom: '1px solid var(--border)',
-          }}
-          onMouseEnter={keepMega}
-          onMouseLeave={closeMega}
-        >
+      {!!megaOpen && (
+        <div className="fixed left-0 right-0 z-40 shadow-2xl"
+          style={{ top: 'calc(36px + 72px + 48px)', background: 'var(--bg-card)', borderTop: '1px solid var(--border)', borderBottom: '1px solid var(--border)' }}
+          onMouseEnter={keepMega} onMouseLeave={closeMega}>
           <div className="max-w-7xl mx-auto px-6 py-7">
-            <h3 className="text-[24px] font-black tracking-[-0.5px] mb-5"
-              style={{ color: 'var(--text-primary)' }}>
+            <h3 className="text-[24px] font-black tracking-[-0.5px] mb-5" style={{ color: 'var(--text-primary)' }}>
               {activeKat?.icon} {activeKat?.name}
             </h3>
 
@@ -419,9 +448,7 @@ export default function Navbar() {
                     {subCats.map(sub => {
                       const badge = getBadge(sub.slug)
                       return (
-                        <Link key={sub.slug}
-                          href={`/katalog/${sub.slug}`}
-                          onClick={() => setMegaOpen(null)}
+                        <Link key={sub.slug} href={`/katalog/${sub.slug}`} onClick={() => setMegaOpen(null)}
                           className="flex items-center justify-between py-2.5 text-[14px] font-medium border-b transition-colors hover:text-[#F4821F]"
                           style={{ color: 'var(--text-primary)', borderColor: 'var(--border)' }}>
                           <span>{sub.name}</span>
@@ -435,8 +462,7 @@ export default function Navbar() {
                       )
                     })}
                   </div>
-                  <Link href={`/katalog/${megaOpen}`}
-                    onClick={() => setMegaOpen(null)}
+                  <Link href={`/katalog/${megaOpen}`} onClick={() => setMegaOpen(null)}
                     className="inline-flex items-center gap-1.5 mt-5 text-[13px] font-bold transition-colors hover:text-[#F4821F]"
                     style={{ color: 'var(--text-primary)' }}>
                     Tüm Ürünler <ArrowRight size={13} />
@@ -446,8 +472,7 @@ export default function Navbar() {
                   <div className="w-[560px] flex-shrink-0">
                     <div className="grid grid-cols-4 gap-3">
                       {cardsList.slice(0, 8).map(p => (
-                        <Link key={p.slug} href={`/urun/${p.slug}`}
-                          onClick={() => setMegaOpen(null)}
+                        <Link key={p.slug} href={`/urun/${p.slug}`} onClick={() => setMegaOpen(null)}
                           className="group flex flex-col rounded-xl overflow-hidden transition-all hover:shadow-md hover:-translate-y-0.5"
                           style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
                           <div className="aspect-square overflow-hidden flex items-center justify-center"
@@ -477,17 +502,15 @@ export default function Navbar() {
                 <div className="flex-1">
                   <div className="grid grid-cols-3 gap-x-6 gap-y-1.5 mb-5">
                     {megaProducts.slice(0, 12).map(p => (
-                      <Link key={p.slug} href={`/urun/${p.slug}`}
-                        onClick={() => setMegaOpen(null)}
+                      <Link key={p.slug} href={`/urun/${p.slug}`} onClick={() => setMegaOpen(null)}
                         className="text-[13px] py-1 transition-colors hover:text-[#F4821F]"
                         style={{ color: 'var(--text-secondary)' }}>
                         {p.name}
                       </Link>
                     ))}
                   </div>
-                  <Link href={`/katalog/${megaOpen}`}
-                    onClick={() => setMegaOpen(null)}
-                    className="inline-flex items-center gap-1.5 text-[13px] font-bold transition-colors hover:text-[#F4821F]"
+                  <Link href={`/katalog/${megaOpen}`} onClick={() => setMegaOpen(null)}
+                    className="inline-flex items-center gap-1.5 text-[13px] font-bold hover:text-[#F4821F]"
                     style={{ color: 'var(--text-primary)' }}>
                     Tüm Ürünler <ArrowRight size={13} />
                   </Link>
@@ -501,9 +524,8 @@ export default function Navbar() {
                 <p className="text-[14px] font-medium" style={{ color: 'var(--text-secondary)' }}>
                   Bu kategoride henüz ürün veya alt kategori yok.
                 </p>
-                <Link href={`/katalog/${megaOpen}`}
-                  onClick={() => setMegaOpen(null)}
-                  className="inline-flex items-center gap-1.5 mt-3 text-[13px] font-bold transition-colors hover:text-[#F4821F]"
+                <Link href={`/katalog/${megaOpen}`} onClick={() => setMegaOpen(null)}
+                  className="inline-flex items-center gap-1.5 mt-3 text-[13px] font-bold hover:text-[#F4821F]"
                   style={{ color: '#F4821F' }}>
                   Kategori sayfasını ziyaret et <ArrowRight size={13} />
                 </Link>
