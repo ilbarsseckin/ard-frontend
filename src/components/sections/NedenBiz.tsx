@@ -9,49 +9,35 @@ interface USP {
 }
 
 const USPS: USP[] = [
-  {
-    icon: Zap,
-    title: '48 Saatte Kapında',
-    desc: 'Onay sonrası hızlı üretim ve kargo. Acil işlerde 24 saat içinde teslim.',
-    color: '#F4821F',
-  },
-  {
-    icon: Sparkles,
-    title: 'Yüksek Kalite Baskı',
-    desc: 'Profesyonel makineler, premium kağıt seçenekleri, renk hassasiyeti.',
-    color: '#8B5CF6',
-  },
-  {
-    icon: CreditCard,
-    title: 'Güvenli Online Ödeme',
-    desc: 'Iyzico altyapısı, 3D Secure doğrulama. Tüm kartlar ve havale ile ödeme.',
-    color: '#16A34A',
-  },
-  {
-    icon: Truck,
-    title: 'Türkiye\'nin Her Yerine',
-    desc: 'Anlaşmalı kargo şirketleri. 500 ₺ üstü siparişlerde kargo ücretsiz.',
-    color: '#2563EB',
-  },
-  {
-    icon: HeadphonesIcon,
-    title: '7/24 WhatsApp Destek',
-    desc: 'Sorunda anında yanıt. Tasarım yardımı ve teknik destek hattı.',
-    color: '#0891B2',
-  },
-  {
-    icon: ShieldCheck,
-    title: 'Memnuniyet Garantisi',
-    desc: 'Baskı hatasında ücretsiz yeniden baskı veya tam para iadesi.',
-    color: '#DC2626',
-  },
+  { icon: Zap,             title: '48 Saatte Kapında',      desc: 'Onay sonrası hızlı üretim ve kargo. Acil işlerde 24 saat içinde teslim.',         color: '#F4821F' },
+  { icon: Sparkles,        title: 'Yüksek Kalite Baskı',    desc: 'Profesyonel makineler, premium kağıt, renk hassasiyeti.',                          color: '#8B5CF6' },
+  { icon: CreditCard,      title: 'Güvenli Online Ödeme',   desc: 'Iyzico altyapısı, 3D Secure. Tüm kartlar ve havale ile ödeme.',                    color: '#16A34A' },
+  { icon: Truck,           title: 'Türkiye\'nin Her Yerine', desc: 'Anlaşmalı kargo. 500₺ üstü siparişlerde kargo ücretsiz.',                          color: '#2563EB' },
+  { icon: HeadphonesIcon,  title: '7/24 WhatsApp Destek',   desc: 'Sorunda anında yanıt. Tasarım yardımı ve teknik destek.',                          color: '#0891B2' },
+  { icon: ShieldCheck,     title: 'Memnuniyet Garantisi',   desc: 'Baskı hatasında ücretsiz yeniden baskı veya tam para iadesi.',                     color: '#DC2626' },
 ]
+
+const doubled = [...USPS, ...USPS]
 
 export default function NedenBiz() {
   return (
-    <section className="py-12 md:py-20" style={{ background: 'var(--bg-secondary)' }}>
-      <div className="max-w-7xl mx-auto px-6">
+    <section className="py-12 md:py-20 overflow-hidden" style={{ background: 'var(--bg-secondary)' }}>
+      <style>{`
+        @keyframes neden-scroll {
+          0%   { transform: translateX(0); }
+          100% { transform: translateX(-50%); }
+        }
+        .neden-track {
+          display: flex;
+          width: max-content;
+          animation: neden-scroll 32s linear infinite;
+        }
+        .neden-track:hover {
+          animation-play-state: paused;
+        }
+      `}</style>
 
+      <div className="max-w-7xl mx-auto px-6">
         {/* Başlık */}
         <div className="text-center mb-10 md:mb-14">
           <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] md:text-[11px] font-bold tracking-[1.5px] uppercase mb-3"
@@ -63,28 +49,34 @@ export default function NedenBiz() {
             style={{ color: 'var(--text-primary)' }}>
             Binlerce işletmenin tercihi
           </h2>
-          <p className="text-[13px] md:text-[15px] mt-2"
-            style={{ color: 'var(--text-muted)' }}>
+          <p className="text-[13px] md:text-[15px] mt-2" style={{ color: 'var(--text-muted)' }}>
             Online matbaada aradığınız her şey tek bir adreste
           </p>
         </div>
+      </div>
 
-        {/* 6 kart grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {USPS.map((u, i) => {
+      {/* Kayan kartlar */}
+      <div className="relative">
+        {/* Kenar gölgeleri */}
+        <div className="absolute left-0 top-0 bottom-0 w-20 z-10 pointer-events-none"
+          style={{ background: 'linear-gradient(to right, var(--bg-secondary), transparent)' }} />
+        <div className="absolute right-0 top-0 bottom-0 w-20 z-10 pointer-events-none"
+          style={{ background: 'linear-gradient(to left, var(--bg-secondary), transparent)' }} />
+
+        <div className="neden-track px-4 gap-4">
+          {doubled.map((u, i) => {
             const Icon = u.icon
             return (
               <div key={i}
-                className="rounded-2xl p-5 transition-all hover:shadow-lg hover:-translate-y-0.5"
+                className="flex-shrink-0 w-[280px] rounded-2xl p-5 transition-all hover:shadow-lg hover:-translate-y-1"
                 style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
-
                 <div className="flex items-start gap-3">
                   <div className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0"
                     style={{ background: `${u.color}1A` }}>
-                    <Icon size={20} className="" style={{ color: u.color } as any} />
+                    <Icon size={20} style={{ color: u.color }} />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <h3 className="text-[15px] font-bold tracking-[-0.3px] mb-1"
+                    <h3 className="text-[14px] font-bold tracking-[-0.3px] mb-1"
                       style={{ color: 'var(--text-primary)' }}>
                       {u.title}
                     </h3>
