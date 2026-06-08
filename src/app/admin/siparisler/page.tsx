@@ -1,220 +1,283 @@
 'use client'
-import { useState, useEffect, Suspense } from 'react'
-import { useSearchParams } from 'next/navigation'
-import AdminNavbar from '@/components/layout/AdminNavbar'
+import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import AdminGuard from '@/components/layout/AdminGuard'
+import AdminNavbar from '@/components/layout/AdminNavbar'
 import api from '@/lib/api'
 import toast from 'react-hot-toast'
-import { Check, X, Printer, Truck, CheckCircle, AlertTriangle, ChevronDown, ChevronUp } from 'lucide-react'
+import {
+  Package, Loader2, RefreshCw, Search, ExternalLink,
+  Phone, Calendar, ChevronDown,
+} from 'lucide-react'
 
-const statuses = [
-  { val: '', label: 'Tümü' },
-  { val: 'PAID', label: 'Ödendi' },
-  { val: 'REVIEWING', label: 'İncelemede' },
-  { val: 'PRINTING', label: 'Baskıda' },
-  { val: 'SHIPPED', label: 'Kargoda' },
-  { val: 'COMPLETED', label: 'Tamamlandı' },
-  { val: 'CANCELLED', label: 'İptal' },
-]
-
-const statusMap: Record<string, { label: string; color: string; bg: string }> = {
-  PENDING: { label: 'Ödeme Bekleniyor', color: 'text-gray-500', bg: 'bg-gray-100 dark:bg-white/[0.06]' },
-  PAID: { label: 'Ödendi', color: 'text-blue-600', bg: 'bg-blue-50 dark:bg-blue-500/10' },
-  REVIEWING: { label: 'İncelemede', color: 'text-amber-600', bg: 'bg-amber-50 dark:bg-amber-500/10' },
-  PRINTING: { label: 'Baskıda', color: 'text-purple-600', bg: 'bg-purple-50 dark:bg-purple-500/10' },
-  SHIPPED: { label: 'Kargoda', color: 'text-blue-600', bg: 'bg-blue-50 dark:bg-blue-500/10' },
-  COMPLETED: { label: 'Tamamlandı', color: 'text-emerald-600', bg: 'bg-emerald-50 dark:bg-emerald-500/10' },
-  CANCELLED: { label: 'İptal', color: 'text-red-500', bg: 'bg-red-50 dark:bg-red-500/10' },
+interface OrderSummary {
+  id: string
+  orderNumber: string
+  customerName: string
+  customerPhone: string
+  city?: string
+  totalTl: number
+  status: string
+  paymentStatus?: string
+  items: Array<{ productName: string; tierQty: number }>
+  createdAt: string
 }
 
-function SiparislerContent() {
-  const params = useSearchParams()
-  const [orders, setOrders] = useState<any[]>([])
+const STATUS_LABELS: Record<string, { label: string; color: string; bg: string }> = {
+  PENDING:       { label: 'Beklemede',     color: '#D97706', bg: 'rgba(245,158,11,0.1)' },
+  CONFIRMED:     { label: 'Onaylandı',     color: '#2563EB', bg: 'rgba(59,130,246,0.1)' },
+  IN_PRODUCTION: { label: 'Üretimde',      color: '#7C3AED', bg: 'rgba(124,58,237,0.1)' },
+  READY:         { label: 'Hazır',         color: '#0891B2', bg: 'rgba(8,145,178,0.1)' },
+  SHIPPED:       { label: 'Kargoda',       color: '#059669', bg: 'rgba(16,185,129,0.1)' },
+  DELIVERED:     { label: 'Teslim Edildi', color: '#16A34A', bg: 'rgba(22,163,74,0.1)' },
+  CANCELLED:     { label: 'İptal',         color: '#DC2626', bg: 'rgba(239,68,68,0.1)' },
+}
+
+const PAYMENT_LABELS: Record<string, { label: string; color: string; bg: string }> = {
+  PENDING:    { label: 'Ödeme Beklemede',  color: '#6B7280', bg: 'rgba(107,114,128,0.1)' },
+  PROCESSING: { label: '3DS Bekliyor',     color: '#D97706', bg: 'rgba(245,158,11,0.1)' },
+  PAID:       { label: 'Ödendi',           color: '#16A34A', bg: 'rgba(22,163,74,0.15)' },
+  FAILED:     { label: 'Başarısız',        color: '#DC2626', bg: 'rgba(239,68,68,0.1)' },
+  REFUNDED:   { label: 'İade Edildi',      color: '#6B7280', bg: 'rgba(107,114,128,0.1)' },
+}
+
+function relativeTime(iso: string): string {
+  if (!iso) return '-'
+  const diff = (Date.now() - new Date(iso).getTime()) / 1000
+  if (diff < 60) return 'şimdi'
+  if (diff < 3600) return `${Math.floor(diff / 60)} dk önce`
+  if (diff < 86400) return `${Math.floor(diff / 3600)} sa önce`
+  if (diff < 604800) return `${Math.floor(diff / 86400)} gün önce`
+  return new Date(iso).toLocaleDateString('tr-TR')
+}
+
+export default function AdminCatalogOrdersPage() {
+  const [orders, setOrders] = useState<OrderSummary[]>([])
   const [loading, setLoading] = useState(true)
-  const [filterStatus, setFilterStatus] = useState(params.get('status') || '')
-  const [expandedId, setExpandedId] = useState<string | null>(null)
-  const [actionLoading, setActionLoading] = useState<string | null>(null)
+  const [filter, setFilter] = useState<string>('')
+  const [search, setSearch] = useState('')
+  const [filterOpen, setFilterOpen] = useState(false)
+  const router = useRouter()
 
-  const loadOrders = () => {
+  const load = () => {
     setLoading(true)
-    const url = filterStatus ? `/api/operator/orders?status=${filterStatus}` : '/api/operator/orders'
-    api.get(url).then(r => setOrders(r.data.data || [])).finally(() => setLoading(false))
+    const url = filter ? `/api/admin/catalog/orders?status=${filter}` : '/api/admin/catalog/orders'
+    api.get(url)
+      .then(r => setOrders(r.data.data || []))
+      .catch(() => toast.error('Siparişler yüklenemedi'))
+      .finally(() => setLoading(false))
   }
 
-  useEffect(() => { loadOrders() }, [filterStatus])
+  useEffect(() => { load() }, [filter])
 
-  const updateStatus = async (orderId: string, endpoint: string, successMsg: string) => {
-    setActionLoading(orderId)
-    try {
-      await api.post(`/api/operator/orders/${orderId}/${endpoint}`)
-      toast.success(successMsg)
-      loadOrders()
-    } catch { toast.error('İşlem başarısız') }
-    finally { setActionLoading(null) }
+  const filtered = orders.filter(o =>
+    !search ||
+    o.orderNumber.toLowerCase().includes(search.toLowerCase()) ||
+    o.customerName.toLowerCase().includes(search.toLowerCase()) ||
+    o.customerPhone.includes(search)
+  )
+
+  const counts = {
+    total: orders.length,
+    pending: orders.filter(o => o.status === 'PENDING').length,
+    inProduction: orders.filter(o => o.status === 'IN_PRODUCTION').length,
+    shipped: orders.filter(o => o.status === 'SHIPPED').length,
+    paid: orders.filter(o => o.paymentStatus === 'PAID').length,
   }
+
+  const activeFilterLabel = filter ? STATUS_LABELS[filter]?.label : 'Tümü'
 
   return (
-       <AdminGuard>
+    <AdminGuard>
       <AdminNavbar />
-      <main className="min-h-screen bg-gray-50 dark:bg-[#0a0a0a]">
-        <div className="max-w-7xl mx-auto px-6 py-10">
-          <div className="flex items-center justify-between mb-6">
+      <main className="min-h-screen" style={{ background: 'var(--bg-secondary)' }}>
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 py-5 sm:py-8">
+
+          {/* Başlık */}
+          <div className="flex items-center justify-between mb-4 sm:mb-6">
             <div>
-              <h1 className="text-[22px] font-medium tracking-[-0.5px] text-gray-900 dark:text-gray-100">Sipariş yönetimi</h1>
-              <p className="text-[13px] text-gray-400 mt-0.5">{orders.length} sipariş</p>
+              <div className="flex items-center gap-2 mb-0.5">
+                <Package size={16} className="text-[#F4821F]" />
+                <h1 className="text-[18px] sm:text-[22px] font-bold tracking-[-0.5px]" style={{ color: 'var(--text-primary)' }}>
+                  Katalog Siparişleri
+                </h1>
+              </div>
+              <p className="text-[11px] sm:text-[13px]" style={{ color: 'var(--text-muted)' }}>
+                {counts.total} sipariş · {counts.pending} bekleyen · {counts.paid} ödendi
+              </p>
+            </div>
+            <button onClick={load}
+              className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0"
+              style={{ border: '1px solid var(--border)', background: 'var(--bg-card)', color: 'var(--text-muted)' }}>
+              <RefreshCw size={13} />
+            </button>
+          </div>
+
+          {/* Stat kartları */}
+          <div className="grid grid-cols-3 sm:grid-cols-5 gap-2 sm:gap-3 mb-4">
+            {[
+              { label: 'Toplam',    value: counts.total,        color: '#F4821F' },
+              { label: 'Bekleyen', value: counts.pending,      color: '#D97706' },
+              { label: 'Üretimde', value: counts.inProduction, color: '#7C3AED' },
+              { label: 'Kargoda',  value: counts.shipped,      color: '#059669' },
+              { label: 'Ödendi',   value: counts.paid,         color: '#16A34A' },
+            ].map(s => (
+              <div key={s.label} className="rounded-xl p-2.5 sm:p-3"
+                style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
+                <p className="text-[9px] sm:text-[10px] font-bold uppercase tracking-[1px]" style={{ color: 'var(--text-muted)' }}>
+                  {s.label}
+                </p>
+                <p className="text-[20px] sm:text-[24px] font-black tracking-[-1px] mt-0.5" style={{ color: s.color }}>
+                  {s.value}
+                </p>
+              </div>
+            ))}
+          </div>
+
+          {/* Arama + Filtre */}
+          <div className="flex gap-2 mb-4">
+            {/* Arama */}
+            <div className="relative flex-1">
+              <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-muted)' }} />
+              <input value={search} onChange={e => setSearch(e.target.value)}
+                placeholder="Sipariş no, ad, telefon..."
+                className="w-full pl-8 pr-3 py-2.5 text-[13px] rounded-lg outline-none"
+                style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', color: 'var(--text-primary)' }} />
+            </div>
+
+            {/* Mobil filtre dropdown */}
+            <div className="relative sm:hidden">
+              <button onClick={() => setFilterOpen(o => !o)}
+                className="flex items-center gap-1.5 px-3 py-2.5 text-[12px] font-medium rounded-lg whitespace-nowrap"
+                style={{ background: filter ? '#F4821F' : 'var(--bg-card)', color: filter ? 'white' : 'var(--text-secondary)', border: '1px solid var(--border)' }}>
+                {activeFilterLabel}
+                <ChevronDown size={12} className={filterOpen ? 'rotate-180' : ''} />
+              </button>
+              {filterOpen && (
+                <div className="absolute right-0 top-full mt-1 w-44 rounded-xl shadow-xl z-20 overflow-hidden"
+                  style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
+                  <button onClick={() => { setFilter(''); setFilterOpen(false) }}
+                    className="w-full text-left px-3 py-2.5 text-[12px] font-medium"
+                    style={{ color: !filter ? '#F4821F' : 'var(--text-secondary)', background: !filter ? 'rgba(244,130,31,0.08)' : 'transparent' }}>
+                    Tümü
+                  </button>
+                  {Object.entries(STATUS_LABELS).map(([key, info]) => (
+                    <button key={key} onClick={() => { setFilter(key); setFilterOpen(false) }}
+                      className="w-full text-left px-3 py-2.5 text-[12px] font-medium border-t"
+                      style={{ color: filter === key ? info.color : 'var(--text-secondary)', background: filter === key ? info.bg : 'transparent', borderColor: 'var(--border)' }}>
+                      {info.label}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
 
-          {/* Filtreler */}
-          <div className="flex gap-2 mb-5 flex-wrap">
-            {statuses.map(s => (
-              <button key={s.val} onClick={() => setFilterStatus(s.val)}
-                className={`text-[12px] px-3 py-1.5 rounded-lg border transition-colors ${filterStatus === s.val ? 'bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 border-transparent' : 'border-black/[0.08] dark:border-white/[0.08] text-gray-500 hover:bg-gray-50 dark:hover:bg-white/[0.04]'}`}>
-                {s.label}
+          {/* Masaüstü filtre butonları */}
+          <div className="hidden sm:flex gap-1 flex-wrap mb-4">
+            <button onClick={() => setFilter('')}
+              className="px-3 py-1.5 text-[12px] font-medium rounded-lg transition-colors"
+              style={{ background: !filter ? '#F4821F' : 'var(--bg-card)', color: !filter ? 'white' : 'var(--text-secondary)', border: '1px solid var(--border)' }}>
+              Hepsi
+            </button>
+            {Object.entries(STATUS_LABELS).map(([key, info]) => (
+              <button key={key} onClick={() => setFilter(key)}
+                className="px-3 py-1.5 text-[12px] font-medium rounded-lg transition-colors"
+                style={{ background: filter === key ? info.color : 'var(--bg-card)', color: filter === key ? 'white' : 'var(--text-secondary)', border: '1px solid var(--border)' }}>
+                {info.label}
               </button>
             ))}
           </div>
 
-          <div className="space-y-3">
-            {loading ? (
-              Array.from({ length: 5 }).map((_, i) => (
-                <div key={i} className="bg-white dark:bg-[#141414] border border-black/[0.07] dark:border-white/[0.07] rounded-xl p-4 animate-pulse h-20" />
-              ))
-            ) : orders.length === 0 ? (
-              <div className="bg-white dark:bg-[#141414] border border-black/[0.07] dark:border-white/[0.07] rounded-xl p-10 text-center">
-                <p className="text-[14px] text-gray-400">Sipariş bulunamadı</p>
-              </div>
-            ) : orders.map((o: any) => {
-              const s = statusMap[o.status] || { label: o.status, color: 'text-gray-500', bg: 'bg-gray-100' }
-              const isExpanded = expandedId === o.id
-              const hasWarning = o.pageWarning
+          {/* Liste */}
+          {loading ? (
+            <div className="flex justify-center py-16">
+              <Loader2 size={24} className="animate-spin text-[#F4821F]" />
+            </div>
+          ) : filtered.length === 0 ? (
+            <div className="text-center py-16 rounded-2xl"
+              style={{ background: 'var(--bg-card)', border: '1px dashed var(--border)' }}>
+              <Package size={32} className="mx-auto mb-3 opacity-30" style={{ color: 'var(--text-muted)' }} />
+              <p className="text-[14px]" style={{ color: 'var(--text-secondary)' }}>
+                {orders.length === 0 ? 'Henüz katalog siparişi yok' : 'Filtreye uygun sipariş bulunamadı'}
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {filtered.map(o => {
+                const st = STATUS_LABELS[o.status] || STATUS_LABELS.PENDING
+                const pay = o.paymentStatus ? PAYMENT_LABELS[o.paymentStatus] : null
+                return (
+                  <div key={o.id}
+                    onClick={() => router.push(`/admin/katalog/siparisler/${o.id}`)}
+                    className="rounded-xl p-3 sm:p-4 cursor-pointer transition-all active:scale-[0.99]"
+                    style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
 
-              return (
-                <div key={o.id} className="bg-white dark:bg-[#141414] border border-black/[0.07] dark:border-white/[0.07] rounded-xl overflow-hidden">
-                  {/* Sipariş başlık satırı */}
-                  <div className="flex items-center gap-4 p-4">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-0.5">
-                        <p className="text-[13px] font-medium text-gray-900 dark:text-gray-100">
-                          #{o.id.substring(0, 8).toUpperCase()}
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex-1 min-w-0">
+                        {/* Sipariş no + durum */}
+                        <div className="flex items-center gap-1.5 mb-1 flex-wrap">
+                          <code className="text-[12px] sm:text-[13px] font-mono font-bold" style={{ color: '#F4821F' }}>
+                            {o.orderNumber}
+                          </code>
+                          <span className="text-[9px] sm:text-[10px] px-1.5 sm:px-2 py-0.5 rounded-full font-bold uppercase"
+                            style={{ background: st.bg, color: st.color }}>
+                            {st.label}
+                          </span>
+                          {pay && (
+                            <span className="text-[9px] sm:text-[10px] px-1.5 sm:px-2 py-0.5 rounded-full font-bold uppercase"
+                              style={{ background: pay.bg, color: pay.color }}>
+                              {pay.label}
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Müşteri adı */}
+                        <p className="text-[13px] sm:text-[14px] font-semibold" style={{ color: 'var(--text-primary)' }}>
+                          {o.customerName}
                         </p>
-                        {hasWarning && (
-                          <div className="flex items-center gap-1 text-[10px] text-amber-600 bg-amber-50 dark:bg-amber-500/10 px-1.5 py-0.5 rounded">
-                            <AlertTriangle size={10} /> PDF uyarısı
-                          </div>
-                        )}
+
+                        {/* İletişim + tarih */}
+                        <div className="flex flex-wrap items-center gap-2 sm:gap-3 mt-1 text-[10px] sm:text-[11px]" style={{ color: 'var(--text-muted)' }}>
+                          <span className="flex items-center gap-1"><Phone size={9} /> {o.customerPhone}</span>
+                          {o.city && <span>{o.city}</span>}
+                          <span className="flex items-center gap-1"><Calendar size={9} /> {relativeTime(o.createdAt)}</span>
+                        </div>
+
+                        {/* Ürünler */}
+                        <div className="flex flex-wrap gap-1 mt-1.5">
+                          {o.items.slice(0, 2).map((it, i) => (
+                            <span key={i} className="text-[9px] sm:text-[10px] px-1.5 py-0.5 rounded"
+                              style={{ background: 'var(--bg-secondary)', color: 'var(--text-secondary)', border: '1px solid var(--border)' }}>
+                              {it.productName} ×{it.tierQty}
+                            </span>
+                          ))}
+                          {o.items.length > 2 && (
+                            <span className="text-[9px] sm:text-[10px]" style={{ color: 'var(--text-muted)' }}>
+                              +{o.items.length - 2}
+                            </span>
+                          )}
+                        </div>
                       </div>
-                      <p className="text-[11px] text-gray-400">
-                        {o.customerName} · {o.customerEmail} · {new Date(o.createdAt).toLocaleDateString('tr-TR')}
-                      </p>
-                    </div>
 
-                    <span className={`text-[11px] font-medium px-2.5 py-1 rounded-lg ${s.bg} ${s.color}`}>
-                      {s.label}
-                    </span>
-
-                    <p className="text-[15px] font-medium text-gray-900 dark:text-gray-100 w-24 text-right">
-                      ₺{o.totalPrice?.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}
-                    </p>
-
-                    {/* Aksiyon butonları */}
-                    <div className="flex items-center gap-2">
-                      {o.status === 'PAID' && (
-                        <>
-                          <button onClick={() => updateStatus(o.id, 'approve', 'Onaylandı')}
-                            disabled={actionLoading === o.id}
-                            className="flex items-center gap-1 text-[11px] font-medium text-emerald-600 bg-emerald-50 dark:bg-emerald-500/10 px-2.5 py-1.5 rounded-lg hover:opacity-80 transition-opacity disabled:opacity-50">
-                            <Check size={12} /> Onayla
-                          </button>
-                          <button onClick={() => updateStatus(o.id, 'reject', 'Reddedildi')}
-                            disabled={actionLoading === o.id}
-                            className="flex items-center gap-1 text-[11px] font-medium text-red-500 bg-red-50 dark:bg-red-500/10 px-2.5 py-1.5 rounded-lg hover:opacity-80 transition-opacity disabled:opacity-50">
-                            <X size={12} /> Reddet
-                          </button>
-                        </>
-                      )}
-                      {o.status === 'REVIEWING' && (
-                        <button onClick={() => updateStatus(o.id, 'print', 'Baskıya gönderildi')}
-                          disabled={actionLoading === o.id}
-                          className="flex items-center gap-1 text-[11px] font-medium text-purple-600 bg-purple-50 dark:bg-purple-500/10 px-2.5 py-1.5 rounded-lg hover:opacity-80 transition-opacity disabled:opacity-50">
-                          <Printer size={12} /> Baskıya gönder
-                        </button>
-                      )}
-                      {o.status === 'PRINTING' && (
-                        <button onClick={() => updateStatus(o.id, 'ship', 'Kargoya verildi')}
-                          disabled={actionLoading === o.id}
-                          className="flex items-center gap-1 text-[11px] font-medium text-blue-600 bg-blue-50 dark:bg-blue-500/10 px-2.5 py-1.5 rounded-lg hover:opacity-80 transition-opacity disabled:opacity-50">
-                          <Truck size={12} /> Kargoya ver
-                        </button>
-                      )}
-                      {o.status === 'SHIPPED' && (
-                        <button onClick={() => updateStatus(o.id, 'complete', 'Tamamlandı')}
-                          disabled={actionLoading === o.id}
-                          className="flex items-center gap-1 text-[11px] font-medium text-emerald-600 bg-emerald-50 dark:bg-emerald-500/10 px-2.5 py-1.5 rounded-lg hover:opacity-80 transition-opacity disabled:opacity-50">
-                          <CheckCircle size={12} /> Tamamla
-                        </button>
-                      )}
-
-                      <button onClick={() => setExpandedId(isExpanded ? null : o.id)}
-                        className="w-7 h-7 flex items-center justify-center text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors">
-                        {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-                      </button>
+                      {/* Sağ — fiyat */}
+                      <div className="text-right flex-shrink-0">
+                        <p className="text-[18px] sm:text-[20px] font-black tracking-[-0.5px]" style={{ color: '#F4821F' }}>
+                          ₺{Number(o.totalTl).toLocaleString('tr-TR', { maximumFractionDigits: 0 })}
+                        </p>
+                        <p className="text-[9px] sm:text-[10px] mt-0.5 flex items-center justify-end gap-1"
+                          style={{ color: 'var(--text-muted)' }}>
+                          Detay <ExternalLink size={8} />
+                        </p>
+                      </div>
                     </div>
                   </div>
-
-                  {/* Genişletilmiş detay */}
-                  {isExpanded && (
-                    <div className="border-t border-black/[0.07] dark:border-white/[0.07] p-4 bg-gray-50 dark:bg-white/[0.02]">
-                      <div className="grid grid-cols-2 gap-4 mb-4">
-                        <div>
-                          <p className="text-[11px] text-gray-400 mb-1">Müşteri bilgisi</p>
-                          <p className="text-[12px] text-gray-900 dark:text-gray-100">{o.customerName}</p>
-                          <p className="text-[12px] text-gray-500">{o.customerEmail}</p>
-                          <p className="text-[12px] text-gray-500">{o.customerPhone}</p>
-                        </div>
-                        <div>
-                          <p className="text-[11px] text-gray-400 mb-1">Teslimat adresi</p>
-                          <p className="text-[12px] text-gray-900 dark:text-gray-100">{o.shippingAddress}</p>
-                        </div>
-                      </div>
-
-                      {o.items && o.items.length > 0 && (
-                        <div>
-                          <p className="text-[11px] text-gray-400 mb-2">Sipariş kalemleri</p>
-                          <div className="space-y-2">
-                            {o.items.map((item: any, i: number) => (
-                              <div key={i} className="bg-white dark:bg-[#141414] rounded-lg p-3 border border-black/[0.05] dark:border-white/[0.05]">
-                                <div className="flex justify-between items-start">
-                                  <div>
-                                    <p className="text-[12px] font-medium text-gray-900 dark:text-gray-100">{item.productType}</p>
-                                    {item.widthCm && <p className="text-[11px] text-gray-400">{item.widthCm}×{item.heightCm} cm · {item.quantity} adet</p>}
-                                    {item.fileOriginalName && (
-                                      <p className="text-[11px] text-emerald-600 mt-0.5">📎 {item.fileOriginalName}
-                                        {item.filePageCount > 1 && <span className="ml-1 text-amber-500">({item.filePageCount} sayfa)</span>}
-                                      </p>
-                                    )}
-                                  </div>
-                                  <p className="text-[13px] font-medium text-gray-900 dark:text-gray-100">
-                                    ₺{item.totalPrice?.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}
-                                  </p>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              )
-            })}
-          </div>
+                )
+              })}
+            </div>
+          )}
         </div>
       </main>
     </AdminGuard>
   )
-}
-
-export default function AdminSiparislerPage() {
-  return <Suspense><SiparislerContent /></Suspense>
 }
