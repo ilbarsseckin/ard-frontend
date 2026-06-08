@@ -13,6 +13,7 @@ import api from '@/lib/api'
 import Logo from '@/components/ui/Logo'
 import { useFavorites } from '@/hooks/useFavorites'
 import { useAuthStore } from '@/lib/store/auth'
+import SearchOverlay from '@/components/ui/SearchOverlay'
 
 interface Category {
   id: string
@@ -71,14 +72,12 @@ export default function Navbar() {
   const [categories, setCategories] = useState<Category[]>([])
   const [allCategories, setAllCategories] = useState<Category[]>([])
   const [products, setProducts] = useState<Product[]>([])
-  const [search, setSearch] = useState('')
-  const [mobileSearch, setMobileSearch] = useState(false)
+  const [searchOpen, setSearchOpen] = useState(false)
   const [megaOpen, setMegaOpen] = useState<string | null>(null)
   const [kurumsalOpen, setKurumsalOpen] = useState(false)
   const [mobileMenu, setMobileMenu] = useState(false)
   const kurumsalRef = useRef<HTMLDivElement>(null)
   const megaTimer = useRef<NodeJS.Timeout>()
-  const mobileSearchRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     Promise.all([
@@ -109,17 +108,9 @@ export default function Navbar() {
   }, [])
 
   // Mobil arama açılınca input'a focus
-  useEffect(() => {
-    if (mobileSearch) setTimeout(() => mobileSearchRef.current?.focus(), 100)
-  }, [mobileSearch])
+  useEffect(() => {}, [])
 
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!search.trim()) return
-    router.push(`/urunler?q=${encodeURIComponent(search.trim())}`)
-    setSearch('')
-    setMobileSearch(false)
-  }
+  const handleSearch = (e: React.FormEvent) => { e.preventDefault() }
 
   const openMega = (slug: string) => { clearTimeout(megaTimer.current); setMegaOpen(slug) }
   const closeMega = () => { megaTimer.current = setTimeout(() => setMegaOpen(null), 150) }
@@ -173,31 +164,22 @@ export default function Navbar() {
               <Logo className="h-7 md:h-9" />
             </Link>
 
-            {/* Masaüstü arama */}
-            <form onSubmit={handleSearch} className="hidden md:flex flex-1 max-w-[640px]">
-              <div className="relative w-full">
-                <input value={search} onChange={e => setSearch(e.target.value)}
-                  placeholder="Ne bastırmak istiyorsunuz?"
-                  className="w-full pl-4 pr-12 py-3 text-[13px] rounded-xl outline-none transition-all"
-                  style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', color: 'var(--text-primary)' }} />
-                <button type="submit"
-                  className="absolute right-1.5 top-1/2 -translate-y-1/2 w-9 h-9 rounded-lg flex items-center justify-center"
-                  style={{ background: '#F4821F', color: 'white' }}>
-                  <Search size={14} />
-                </button>
-              </div>
-            </form>
+            {/* Masaüstü arama butonu */}
+            <button onClick={() => setSearchOpen(true)}
+              className="hidden md:flex flex-1 max-w-[640px] items-center gap-3 px-4 py-3 rounded-xl text-[13px] transition-all hover:border-[#F4821F]"
+              style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', color: 'var(--text-muted)' }}>
+              <Search size={14} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
+              <span>Ne bastırmak istiyorsunuz?</span>
+            </button>
 
             {/* Mobil sağ ikonlar */}
             <div className="md:hidden flex items-center gap-1.5 ml-auto">
 
               {/* Arama butonu */}
-              <button onClick={() => { setMobileSearch(o => !o); setMobileMenu(false) }}
+              <button onClick={() => setSearchOpen(true)}
                 className="w-10 h-10 rounded-xl flex items-center justify-center transition-colors"
-                style={{ border: '1px solid var(--border)', background: mobileSearch ? 'rgba(244,130,31,0.1)' : 'transparent' }}>
-                {mobileSearch
-                  ? <X size={15} style={{ color: '#F4821F' }} />
-                  : <Search size={15} style={{ color: 'var(--text-secondary)' }} />}
+                style={{ border: '1px solid var(--border)' }}>
+                <Search size={15} style={{ color: 'var(--text-secondary)' }} />
               </button>
 
               {/* Sepet */}
@@ -270,27 +252,6 @@ export default function Navbar() {
             </div>
           </div>
         </div>
-
-        {/* MOBİL ARAMA BARI */}
-        {mobileSearch && (
-          <div className="md:hidden px-4 py-3"
-            style={{ background: 'var(--bg-primary)', borderBottom: '1px solid var(--border)' }}>
-            <form onSubmit={handleSearch}>
-              <div className="relative">
-                <input ref={mobileSearchRef}
-                  value={search} onChange={e => setSearch(e.target.value)}
-                  placeholder="Ne bastırmak istiyorsunuz?"
-                  className="w-full pl-4 pr-12 py-3 text-[14px] rounded-xl outline-none"
-                  style={{ background: 'var(--bg-secondary)', border: '1px solid #F4821F', color: 'var(--text-primary)' }} />
-                <button type="submit"
-                  className="absolute right-1.5 top-1/2 -translate-y-1/2 w-9 h-9 rounded-lg flex items-center justify-center"
-                  style={{ background: '#F4821F', color: 'white' }}>
-                  <Search size={14} />
-                </button>
-              </div>
-            </form>
-          </div>
-        )}
 
         {/* ROW 3 — Kategori bar (masaüstü) */}
         <div className="hidden lg:block relative"
@@ -534,6 +495,13 @@ export default function Navbar() {
           </div>
         </div>
       )}
+      {/* ARAMA OVERLAY */}
+      <SearchOverlay
+        open={searchOpen}
+        onClose={() => setSearchOpen(false)}
+        categories={allCategories.filter(c => !c.parentId)}
+        allProducts={products}
+      />
     </>
   )
 }
