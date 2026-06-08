@@ -40,7 +40,7 @@ interface Product {
 }
 interface Settings { usd_kur?: string; contact_phone?: string; contact_whatsapp?: string }
 
-const KDV_RATE = 1.20  // ✅ Sabit, her zaman dahil
+const KDV_RATE = 1.20
 
 function calculateDeliveryDate(): string {
   const date = new Date()
@@ -69,8 +69,8 @@ export function UrunDetayClient() {
   const [selectedImageIdx, setSelectedImageIdx] = useState(0)
   const [selectedTierId, setSelectedTierId] = useState<string | null>(null)
   const [selectedAttrs, setSelectedAttrs] = useState<Record<string, string>>({})
-  // ❌ KDV toggle kaldırıldı
   const [activeTab, setActiveTab] = useState<'about' | 'notes' | 'returns' | 'reviews'>('about')
+  const [addedModal, setAddedModal] = useState(false)
   const [lightboxOpen, setLightboxOpen] = useState(false)
   const [design, setDesign] = useState<DesignSelection>({
     mode: null, files: [], supportNotes: '',
@@ -136,10 +136,9 @@ export function UrunDetayClient() {
     return acc * Number(opt?.priceModifier ?? 1.0)
   }, 1)
 
-  // ✅ FROZEN PRICE HESAPLAMA — her zaman KDV dahil
   const baseUsd = selectedTier ? Number(selectedTier.priceUsd) * modifierProduct : 0
   const baseTl = baseUsd * kur
-  const totalTl = baseTl * KDV_RATE  // ← KDV dahil tek değer
+  const totalTl = baseTl * KDV_RATE
 
   const hasOriginal = product.originalPrice && (selectedTier?.priceUsd || 0) > 0
     && Number(product.originalPrice) > Number(selectedTier?.priceUsd)
@@ -160,26 +159,11 @@ export function UrunDetayClient() {
   const canOrder = !!selectedTier && missingRequired.length === 0 && designValid
 
   const handleOrder = () => {
-    if (!product || !selectedTier) {
-      toast.error('Lütfen adet seçin')
-      return
-    }
-    if (missingRequired.length > 0) {
-      toast.error(`Lütfen seçin: ${missingRequired.map(a => a.label).join(', ')}`)
-      return
-    }
-    if (!design.mode) {
-      toast.error('Tasarım seçeneği belirleyin')
-      return
-    }
-    if (design.mode === 'upload' && design.files.length === 0) {
-      toast.error('En az bir tasarım dosyası yükleyin')
-      return
-    }
-    if (design.mode === 'support' && !design.supportNotes.trim()) {
-      toast.error('Tasarım notlarınızı yazın')
-      return
-    }
+    if (!product || !selectedTier) { toast.error('Lütfen adet seçin'); return }
+    if (missingRequired.length > 0) { toast.error(`Lütfen seçin: ${missingRequired.map(a => a.label).join(', ')}`); return }
+    if (!design.mode) { toast.error('Tasarım seçeneği belirleyin'); return }
+    if (design.mode === 'upload' && design.files.length === 0) { toast.error('En az bir tasarım dosyası yükleyin'); return }
+    if (design.mode === 'support' && !design.supportNotes.trim()) { toast.error('Tasarım notlarınızı yazın'); return }
 
     const attributes = Object.entries(selectedAttrs).map(([attrId, optId]) => {
       const attr = product.attributes.find(a => a.attributeId === attrId)
@@ -190,7 +174,6 @@ export function UrunDetayClient() {
       }
     })
 
-    // ✅ FROZEN PRICE — sepete eklendiği anda final fiyat sabitleniyor
     addCatalogItem({
       productId: product.id,
       productSlug: product.slug,
@@ -200,20 +183,18 @@ export function UrunDetayClient() {
       categorySlug: product.categorySlug,
       tierId: selectedTier.id,
       tierQty: selectedTier.qty,
-      priceUsd: baseUsd,      // referans
-      priceTl: totalTl,       // ✅ DONMUŞ final fiyat (KDV dahil)
-      kurAtAdd: kur,          // transparency
+      priceUsd: baseUsd,
+      priceTl: totalTl,
+      kurAtAdd: kur,
       attributes,
       designFileIds: design.mode === 'upload' ? design.files.map(f => f.id) : [],
       designSupport: design.mode === 'support'
         ? { requested: true, notes: design.supportNotes }
         : undefined,
     })
-    toast.success(`Sepete eklendi: ${product.name}`)
-    setTimeout(() => router.push('/sepet'), 700)
+    setAddedModal(true)
   }
 
-  // Diğer adet kartları için fiyat (her zaman KDV dahil)
   const calcTierPrice = (tier: Tier) =>
     Number(tier.priceUsd) * modifierProduct * kur * KDV_RATE
 
@@ -291,41 +272,40 @@ export function UrunDetayClient() {
                   .map(attr => {
                     const isSelected = !!selectedAttrs[attr.attributeId]
                     return (
-                    <div key={attr.attributeId}>
-                      <label className="text-[11px] font-bold uppercase tracking-[1px] mb-1.5 flex items-center gap-1.5"
-                        style={{ color: 'var(--text-secondary)' }}>
-                        {attr.label}
-                        {attr.required && <span style={{ color: '#EF4444' }}>*</span>}
-                        <Info size={11} className="opacity-50 cursor-help"
-                          title={`${attr.label} seçiminiz fiyatı etkileyebilir`} />
-                      </label>
-                      <div className="relative">
-                        <select value={selectedAttrs[attr.attributeId] || ''}
-                          onChange={e => setSelectedAttrs(prev => ({ ...prev, [attr.attributeId]: e.target.value }))}
-                          className="w-full pl-3.5 pr-10 py-3 text-[14px] rounded-lg outline-none appearance-none cursor-pointer transition-all font-medium"
-                          style={{
-                            background: 'var(--bg-card)',
-                            border: isSelected ? '1.5px solid #F4821F' : '1px solid var(--border)',
-                            color: 'var(--text-primary)',
-                            boxShadow: isSelected ? '0 1px 3px rgba(244,130,31,0.1)' : 'none',
-                          }}>
-                          <option value="">{attr.label} seçiniz</option>
-                          {attr.selectedOptions.map(opt => (
-                            <option key={opt.id} value={opt.id}>{opt.value}</option>
-                          ))}
-                        </select>
-                        {isSelected ? (
-                          <Lock size={13}
-                            className="absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none"
-                            style={{ color: '#F4821F' }} />
-                        ) : (
-                          <ChevronDown size={15}
-                            className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none"
-                            style={{ color: 'var(--text-muted)' }} />
-                        )}
+                      <div key={attr.attributeId}>
+                        <label className="text-[11px] font-bold uppercase tracking-[1px] mb-1.5 flex items-center gap-1.5"
+                          style={{ color: 'var(--text-secondary)' }}>
+                          {attr.label}
+                          {attr.required && <span style={{ color: '#EF4444' }}>*</span>}
+                          <Info size={11} className="opacity-50 cursor-help"
+                            title={`${attr.label} seçiminiz fiyatı etkileyebilir`} />
+                        </label>
+                        <div className="relative">
+                          <select value={selectedAttrs[attr.attributeId] || ''}
+                            onChange={e => setSelectedAttrs(prev => ({ ...prev, [attr.attributeId]: e.target.value }))}
+                            className="w-full pl-3.5 pr-10 py-3 text-[14px] rounded-lg outline-none appearance-none cursor-pointer transition-all font-medium"
+                            style={{
+                              background: 'var(--bg-card)',
+                              border: isSelected ? '1.5px solid #F4821F' : '1px solid var(--border)',
+                              color: 'var(--text-primary)',
+                              boxShadow: isSelected ? '0 1px 3px rgba(244,130,31,0.1)' : 'none',
+                            }}>
+                            <option value="">{attr.label} seçiniz</option>
+                            {attr.selectedOptions.map(opt => (
+                              <option key={opt.id} value={opt.id}>{opt.value}</option>
+                            ))}
+                          </select>
+                          {isSelected ? (
+                            <Lock size={13} className="absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none"
+                              style={{ color: '#F4821F' }} />
+                          ) : (
+                            <ChevronDown size={15} className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none"
+                              style={{ color: 'var(--text-muted)' }} />
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  )})}
+                    )
+                  })}
 
                 {product.tiers.length > 0 && (
                   <div>
@@ -350,12 +330,10 @@ export function UrunDetayClient() {
                         ))}
                       </select>
                       {selectedTierId ? (
-                        <Lock size={13}
-                          className="absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none"
+                        <Lock size={13} className="absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none"
                           style={{ color: '#F4821F' }} />
                       ) : (
-                        <ChevronDown size={15}
-                          className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none"
+                        <ChevronDown size={15} className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none"
                           style={{ color: 'var(--text-muted)' }} />
                       )}
                     </div>
@@ -363,7 +341,6 @@ export function UrunDetayClient() {
                 )}
               </div>
 
-              {/* Seçili adet kutusu — sadece KDV dahil */}
               {selectedTier && (
                 <div className="mt-5 p-4 rounded-xl flex items-center justify-between"
                   style={{
@@ -371,9 +348,7 @@ export function UrunDetayClient() {
                     border: '1px solid rgba(244,130,31,0.2)'
                   }}>
                   <div>
-                    <p className="text-[10px] font-bold uppercase tracking-[1px]" style={{ color: '#F4821F' }}>
-                      Adet Seçimi
-                    </p>
+                    <p className="text-[10px] font-bold uppercase tracking-[1px]" style={{ color: '#F4821F' }}>Adet Seçimi</p>
                     <p className="text-[20px] font-black mt-0.5" style={{ color: 'var(--text-primary)' }}>
                       {selectedTier.qty.toLocaleString('tr-TR')}
                     </p>
@@ -383,14 +358,10 @@ export function UrunDetayClient() {
                     <p className="text-[20px] font-black tracking-[-0.5px] text-[#F4821F]">
                       ₺{totalTl.toLocaleString('tr-TR', { maximumFractionDigits: 0 })}
                     </p>
-                    <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>
-                      KDV Dahil
-                    </p>
+                    <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>KDV Dahil</p>
                   </div>
                 </div>
               )}
-
-              {/* ✅ KDV toggle KALDIRILDI */}
 
               <div className="mt-5">
                 <DesignUploader value={design} onChange={setDesign} />
@@ -399,17 +370,12 @@ export function UrunDetayClient() {
 
             <div className="lg:col-span-3">
               <div className="lg:sticky lg:top-24 space-y-3">
-
                 <div className="rounded-2xl p-5"
                   style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
-                  <p className="text-[10px] font-bold uppercase tracking-[1.5px] mb-1"
-                    style={{ color: 'var(--text-muted)' }}>
+                  <p className="text-[10px] font-bold uppercase tracking-[1.5px] mb-1" style={{ color: 'var(--text-muted)' }}>
                     Toplam Fiyat
                   </p>
-                  <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>
-                    KDV Dahil
-                  </p>
-
+                  <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>KDV Dahil</p>
                   <div className="my-3">
                     {hasOriginal && (
                       <p className="text-[14px] line-through" style={{ color: 'var(--text-muted)' }}>
@@ -421,7 +387,6 @@ export function UrunDetayClient() {
                       ₺{totalTl.toLocaleString('tr-TR', { maximumFractionDigits: 0 })}
                     </p>
                   </div>
-
                   <button onClick={handleOrder} disabled={!canOrder}
                     className="w-full flex items-center justify-center gap-2 px-5 py-3 text-[13px] font-bold text-white rounded-xl transition-all disabled:opacity-50"
                     style={{
@@ -431,18 +396,15 @@ export function UrunDetayClient() {
                     <ShoppingCart size={14} />
                     Hemen Al
                   </button>
-
                   {!canOrder && (
                     <p className="text-[10px] mt-2 text-center" style={{ color: 'var(--text-muted)' }}>
                       {!selectedTier ? 'Adet seçin' :
                        missingRequired.length > 0 ? 'Tüm seçenekleri belirleyin' :
                        !design.mode ? 'Tasarım seçeneği belirleyin' :
                        design.mode === 'upload' && design.files.length === 0 ? 'Tasarım dosyası yükleyin' :
-                       design.mode === 'support' && !design.supportNotes.trim() ? 'Tasarım notları yazın' :
-                       ''}
+                       design.mode === 'support' && !design.supportNotes.trim() ? 'Tasarım notları yazın' : ''}
                     </p>
                   )}
-
                   <div className="mt-3 p-3 rounded-lg flex items-start gap-2"
                     style={{ background: 'rgba(244,130,31,0.08)' }}>
                     <Truck size={14} className="flex-shrink-0 mt-0.5 text-[#F4821F]" />
@@ -500,8 +462,7 @@ export function UrunDetayClient() {
                       <div className="aspect-square overflow-hidden relative"
                         style={{ background: 'linear-gradient(135deg, #f3f4f6, #e5e7eb)' }}>
                         {product.images[0]?.url ? (
-                          <img src={product.images[0].url} alt={product.name}
-                            className="w-full h-full object-cover" />
+                          <img src={product.images[0].url} alt={product.name} className="w-full h-full object-cover" />
                         ) : (
                           <div className="absolute inset-0 flex items-center justify-center">
                             <Package size={32} className="opacity-30" />
@@ -531,8 +492,10 @@ export function UrunDetayClient() {
             </section>
           )}
 
+          {/* Tab bölümü — mobilde kaydırılabilir */}
           <section className="mt-10">
-              <div className="flex border-b overflow-x-auto scrollbar-hide" style={{ borderColor: 'var(--border)' }}>
+            <div className="flex border-b overflow-x-auto scrollbar-hide"
+              style={{ borderColor: 'var(--border)' }}>
               {[
                 { id: 'about' as const,   label: 'Ürün Hakkında' },
                 { id: 'notes' as const,   label: 'Sipariş Notları' },
@@ -540,7 +503,7 @@ export function UrunDetayClient() {
                 { id: 'reviews' as const, label: 'Yorumlar' },
               ].map(t => (
                 <button key={t.id} onClick={() => setActiveTab(t.id)}
-                 className="px-3 sm:px-5 py-3 text-[12px] sm:text-[13px] font-bold transition-colors -mb-px whitespace-nowrap flex-shrink-0"
+                  className="px-3 sm:px-5 py-3 text-[12px] sm:text-[13px] font-bold transition-colors -mb-px whitespace-nowrap flex-shrink-0"
                   style={{
                     color: activeTab === t.id ? '#F4821F' : 'var(--text-muted)',
                     borderBottom: activeTab === t.id ? '2px solid #F4821F' : '2px solid transparent',
@@ -572,7 +535,6 @@ export function UrunDetayClient() {
             </div>
           </section>
 
-          {/* Taksit tablosu — en düşük tier fiyatı ya da seçili fiyat */}
           {(() => {
             const minTierTl = product.tiers.length > 0
               ? Math.round(Math.min(...product.tiers.map(t => Number(t.priceUsd))) * kur * KDV_RATE)
@@ -587,6 +549,7 @@ export function UrunDetayClient() {
 
         </div>
       </main>
+
       <Footer />
 
       <MobileBottomBar
@@ -602,6 +565,57 @@ export function UrunDetayClient() {
           startIdx={selectedImageIdx}
           onClose={() => setLightboxOpen(false)}
         />
+      )}
+
+      {/* Sepete eklendi modal */}
+      {addedModal && (
+        <div className="fixed inset-0 z-[200] flex items-end sm:items-center justify-center p-4"
+          style={{ background: 'rgba(0,0,0,0.55)' }}
+          onClick={() => setAddedModal(false)}>
+          <div className="w-full max-w-sm rounded-2xl p-5 space-y-4"
+            style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}
+            onClick={e => e.stopPropagation()}>
+
+            {/* Başlık */}
+            <div className="flex items-center gap-3">
+              <div className="w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0"
+                style={{ background: 'rgba(22,163,74,0.12)' }}>
+                <Check size={20} className="text-green-600" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-[15px] font-black" style={{ color: 'var(--text-primary)' }}>Sepete eklendi!</p>
+                <p className="text-[12px] truncate" style={{ color: 'var(--text-muted)' }}>{product.name}</p>
+              </div>
+            </div>
+
+            {/* Fiyat özeti */}
+            {selectedTier && (
+              <div className="flex items-center justify-between px-3 py-2.5 rounded-xl"
+                style={{ background: 'var(--bg-secondary)' }}>
+                <span className="text-[12px]" style={{ color: 'var(--text-muted)' }}>
+                  {selectedTier.qty.toLocaleString('tr-TR')} adet
+                </span>
+                <span className="text-[15px] font-black text-[#F4821F]">
+                  ₺{totalTl.toLocaleString('tr-TR', { maximumFractionDigits: 0 })}
+                </span>
+              </div>
+            )}
+
+            {/* Butonlar */}
+            <div className="grid grid-cols-2 gap-2">
+              <button onClick={() => setAddedModal(false)}
+                className="py-3 text-[13px] font-bold rounded-xl transition-all hover:opacity-80"
+                style={{ border: '1px solid var(--border)', color: 'var(--text-secondary)', background: 'var(--bg-secondary)' }}>
+                ← Devam Et
+              </button>
+              <button onClick={() => router.push('/sepet')}
+                className="py-3 text-[13px] font-bold rounded-xl text-white transition-all hover:opacity-90"
+                style={{ background: 'linear-gradient(135deg, #F4821F, #e07010)', boxShadow: '0 4px 12px rgba(244,130,31,0.3)' }}>
+                Sepete Git →
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </>
   )
