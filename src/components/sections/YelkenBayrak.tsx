@@ -4,51 +4,172 @@ import { ArrowRight } from 'lucide-react'
 import { useEffect, useRef } from 'react'
 
 /* ─── Yelken Bayrak — SVG dalgalanma ─── */
+/* ─── Yelken Bayrak — SVG dalgalanma ─── */
 function YelkenSVG() {
   const turbRef = useRef<SVGFETurbulenceElement>(null)
+
   useEffect(() => {
-    let t = 0, raf: number
+    let t = 0
+    let raf: number
+
     const wave = () => {
-      t += 0.011
-      turbRef.current?.setAttribute('baseFrequency',
-        `${(0.018 + Math.sin(t * 0.6) * 0.004).toFixed(4)} ${(0.06 + Math.sin(t * 1.1) * 0.018).toFixed(4)}`)
+      t += 0.01
+
+      turbRef.current?.setAttribute(
+        'baseFrequency',
+        `${(0.01 + Math.sin(t * 0.7) * 0.0025).toFixed(4)} ${(0.042 + Math.sin(t * 1.1) * 0.01).toFixed(4)}`
+      )
+
       raf = requestAnimationFrame(wave)
     }
+
     raf = requestAnimationFrame(wave)
     return () => cancelAnimationFrame(raf)
   }, [])
 
   return (
-    <div className="absolute z-10" style={{
-      bottom: '-32px', left: '50%', transform: 'translateX(-50%)',
-      width: '130px', height: '320px',
-      filter: 'drop-shadow(0 12px 20px rgba(0,0,0,0.18))',
-    }}>
-      <svg viewBox="0 0 180 440" xmlns="http://www.w3.org/2000/svg" width="130" height="320">
+    <div
+      className="absolute z-10"
+      style={{
+        bottom: '-30px',
+        left: '50%',
+        transform: 'translateX(-50%) rotate(-1.5deg)',
+        width: '150px',
+        height: '340px',
+        filter: 'drop-shadow(0 16px 26px rgba(0,0,0,0.2))',
+      }}
+    >
+      <svg viewBox="0 0 210 470" xmlns="http://www.w3.org/2000/svg" width="150" height="340">
         <defs>
-          <linearGradient id="pg-y" x1="0" x2="1" y1="0" y2="0">
-            <stop offset="0%" stopColor="#999" /><stop offset="40%" stopColor="#eee" /><stop offset="100%" stopColor="#777" />
+          <linearGradient id="pole-y" x1="0" x2="1" y1="0" y2="0">
+            <stop offset="0%" stopColor="#777" />
+            <stop offset="45%" stopColor="#f4f4f4" />
+            <stop offset="100%" stopColor="#666" />
           </linearGradient>
-          <filter id="wf-y" x="-8%" y="-2%" width="120%" height="104%" colorInterpolationFilters="sRGB">
-            <feTurbulence ref={turbRef} type="turbulence" baseFrequency="0.018 0.06" numOctaves={3} seed={4} result="noise" />
-            <feDisplacementMap in="SourceGraphic" in2="noise" scale={10} xChannelSelector="R" yChannelSelector="G" />
+
+          <linearGradient id="cloth-y" x1="0" x2="1" y1="0" y2="0">
+            <stop offset="0%" stopColor="#f1f2f4" />
+            <stop offset="38%" stopColor="#ffffff" />
+            <stop offset="100%" stopColor="#e7e8eb" />
+          </linearGradient>
+
+          <linearGradient id="shine-y" x1="0" x2="1" y1="0" y2="0">
+            <stop offset="0%" stopColor="rgba(255,255,255,0)" />
+            <stop offset="50%" stopColor="rgba(255,255,255,0.75)" />
+            <stop offset="100%" stopColor="rgba(255,255,255,0)" />
+          </linearGradient>
+
+          <filter id="wf-y" x="-18%" y="-10%" width="140%" height="124%" colorInterpolationFilters="sRGB">
+            <feTurbulence
+              ref={turbRef}
+              type="fractalNoise"
+              baseFrequency="0.01 0.042"
+              numOctaves={2}
+              seed={8}
+              result="noise"
+            />
+            <feDisplacementMap
+              in="SourceGraphic"
+              in2="noise"
+              scale={11}
+              xChannelSelector="R"
+              yChannelSelector="G"
+            />
           </filter>
         </defs>
+
+        <ellipse cx="58" cy="456" rx="46" ry="8" fill="#000" opacity="0.11" />
+
         <g filter="url(#wf-y)">
-          <path d="M26,14 Q76,8 148,18 Q162,20 164,30 Q158,68 153,106 Q148,144 152,182 Q156,220 154,256 Q152,292 155,320 Q157,338 150,350 Q142,362 122,368 Q94,374 68,368 Q44,360 30,352 Q26,344 26,330 L26,14 Z"
-            fill="white" stroke="#e0e0e0" strokeWidth="0.5" />
-          <path d="M26,14 Q76,8 148,18 Q162,20 164,30 L164,50 Q120,42 76,46 Q46,48 26,50 Z" fill="#F4821F" opacity="0.13" />
-          <path d="M26,318 L155,308 Q157,328 150,342 Q142,354 122,360 Q94,366 68,360 Q44,352 30,344 Q26,338 26,326 Z" fill="#F4821F" opacity="0.13" />
-          <line x1="36" y1="56" x2="154" y2="54" stroke="#F4821F" strokeWidth="1" opacity="0.4" />
-          <line x1="32" y1="314" x2="152" y2="304" stroke="#F4821F" strokeWidth="1" opacity="0.4" />
-          <text x="90" y="188" textAnchor="middle" fontFamily="system-ui,sans-serif" fontWeight="800" fontSize="13" transform="rotate(-90,90,188)">
-            <tspan fill="#1a1a1a">baski</tspan><tspan fill="#F4821F">urunleri.com</tspan>
-          </text>
-          <text x="108" y="188" textAnchor="middle" fontFamily="system-ui,sans-serif" fontSize="7" fill="#aaa" letterSpacing="1.2" transform="rotate(-90,108,188)">&apos;yeni nesil matbaa&apos;</text>
+          <path
+            d="M31 42 C76 18 142 20 178 39 C196 126 194 294 153 426 C114 443 68 438 31 418 L31 42 Z"
+            fill="url(#cloth-y)"
+            stroke="#dedfe3"
+            strokeWidth="0.7"
+          />
+
+          <path
+            d="M31 42 C43 48 51 58 53 72 L53 398 C47 407 39 414 31 418 Z"
+            fill="#000"
+            opacity="0.045"
+          />
+
+          <path
+            d="M78 38 C100 145 96 310 78 424"
+            stroke="#000"
+            strokeWidth="16"
+            opacity="0.035"
+            fill="none"
+          />
+
+          <path
+            d="M139 42 C122 150 128 310 145 420"
+            stroke="#000"
+            strokeWidth="12"
+            opacity="0.026"
+            fill="none"
+          />
+
+          <rect x="66" y="50" width="22" height="360" fill="url(#shine-y)" opacity="0.35" />
+
+          <path d="M43 88 C92 76 139 78 173 90" fill="none" stroke="#F4821F" strokeWidth="5" strokeLinecap="round" />
+          <path d="M45 101 C93 91 137 91 170 102" fill="none" stroke="#F4821F" strokeWidth="1.4" opacity="0.5" strokeLinecap="round" />
+
+          <path d="M41 371 C90 383 133 385 156 374" fill="none" stroke="#F4821F" strokeWidth="5" strokeLinecap="round" />
+          <path d="M43 360 C91 372 132 373 154 363" fill="none" stroke="#F4821F" strokeWidth="1.4" opacity="0.5" strokeLinecap="round" />
         </g>
-        <rect x="20" y="6" width="7" height="430" rx="3.5" fill="url(#pg-y)" />
-        <circle cx="23.5" cy="6" r="5" fill="#ccc" />
-        <ellipse cx="23.5" cy="432" rx="8" ry="4.5" fill="#999" opacity="0.5" />
+
+        {/* Net okunabilir logo - filtre dışında */}
+        <g>
+          <text
+            x="101"
+            y="232"
+            textAnchor="middle"
+            fontFamily="system-ui, Segoe UI, sans-serif"
+            fontWeight={900}
+            fontSize={21}
+            letterSpacing="-0.45"
+            transform="rotate(-90 101 232)"
+            fill="#ffffff"
+            stroke="#ffffff"
+            strokeWidth="3"
+            strokeLinejoin="round"
+          >
+            baskiurunleri.com
+          </text>
+
+          <text
+            x="101"
+            y="232"
+            textAnchor="middle"
+            fontFamily="system-ui, Segoe UI, sans-serif"
+            fontWeight={900}
+            fontSize={21}
+            letterSpacing="-0.45"
+            transform="rotate(-90 101 232)"
+          >
+            <tspan fill="#111111">baski</tspan>
+            <tspan fill="#F4821F">urunleri.com</tspan>
+          </text>
+
+          <text
+            x="126"
+            y="232"
+            textAnchor="middle"
+            fontFamily="system-ui, Segoe UI, sans-serif"
+            fontSize={8}
+            fontWeight={700}
+            fill="#737b84"
+            letterSpacing="2"
+            transform="rotate(-90 126 232)"
+          >
+            yeni nesil matbaa
+          </text>
+        </g>
+
+        <rect x="22" y="8" width="8" height="445" rx="4" fill="url(#pole-y)" />
+        <rect x="23.6" y="8" width="1.4" height="445" fill="#ffffff" opacity="0.55" />
+        <circle cx="26" cy="8" r="5.5" fill="#d3d3d3" stroke="#b6b6b6" strokeWidth="0.5" />
       </svg>
     </div>
   )
