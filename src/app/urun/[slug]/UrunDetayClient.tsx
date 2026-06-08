@@ -532,7 +532,7 @@ export function UrunDetayClient() {
           )}
 
           <section className="mt-10">
-            <div className="flex border-b" style={{ borderColor: 'var(--border)' }}>
+              <div className="flex border-b overflow-x-auto scrollbar-hide" style={{ borderColor: 'var(--border)' }}>
               {[
                 { id: 'about' as const,   label: 'Ürün Hakkında' },
                 { id: 'notes' as const,   label: 'Sipariş Notları' },
@@ -540,7 +540,7 @@ export function UrunDetayClient() {
                 { id: 'reviews' as const, label: 'Yorumlar' },
               ].map(t => (
                 <button key={t.id} onClick={() => setActiveTab(t.id)}
-                  className="px-5 py-3 text-[13px] font-bold transition-colors -mb-px"
+                 className="px-3 sm:px-5 py-3 text-[12px] sm:text-[13px] font-bold transition-colors -mb-px whitespace-nowrap flex-shrink-0"
                   style={{
                     color: activeTab === t.id ? '#F4821F' : 'var(--text-muted)',
                     borderBottom: activeTab === t.id ? '2px solid #F4821F' : '2px solid transparent',
