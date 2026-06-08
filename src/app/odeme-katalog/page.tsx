@@ -8,6 +8,7 @@ import {
   CreditCard, Lock, Loader2, ChevronLeft, Package,
   FileText, Image as ImageIcon, Paperclip, Check, Tag, X, Gift,
 } from 'lucide-react'
+import InstallmentSelector from '@/components/ui/InstallmentSelector'
 
 interface CatalogOrderDetail {
   id: string
@@ -68,15 +69,21 @@ function OdemeKatalogContent() {
   const [htmlContent, setHtmlContent] = useState<string | null>(null)
   const [files, setFiles] = useState<PreOrderFile[]>([])
 
-  // ✨ Kupon state
-  const [couponInput, setCouponInput] = useState('')
-  const [couponLoading, setCouponLoading] = useState(false)
-  const [welcomeCoupon, setWelcomeCoupon] = useState<string | null>(null)
-
+  // Kart state — BIN'den önce tanımlanmalı
   const [card, setCard] = useState({
     holderName: '', number: '', expireMonth: '', expireYear: '', cvc: '',
   })
   const [errors, setErrors] = useState<Record<string, string>>({})
+
+  // Taksit state
+  const [installmentCount, setInstallmentCount] = useState(1)
+  const [installmentTotal, setInstallmentTotal] = useState(0)
+  const binNumber = card.number.replace(/\s/g, '').slice(0, 6)
+
+  // Kupon state
+  const [couponInput, setCouponInput] = useState('')
+  const [couponLoading, setCouponLoading] = useState(false)
+  const [welcomeCoupon, setWelcomeCoupon] = useState<string | null>(null)
 
   useEffect(() => {
     if (!errorParam) return
@@ -90,7 +97,6 @@ function OdemeKatalogContent() {
 
   useEffect(() => {
     if (!orderNumber) { router.push('/sepet'); return }
-
     api.get(`/api/catalog/orders/track/${orderNumber}`)
       .then(orderRes => {
         const o: CatalogOrderDetail = orderRes.data.data
@@ -110,7 +116,6 @@ function OdemeKatalogContent() {
       .finally(() => setOrderLoading(false))
   }, [orderNumber])
 
-  // ✨ Hoş geldin kuponu hint (localStorage'dan)
   useEffect(() => {
     if (!order || order.couponCode) return
     const w = localStorage.getItem('baski-welcome-coupon')
@@ -123,24 +128,16 @@ function OdemeKatalogContent() {
     if (doc) { doc.open(); doc.write(htmlContent); doc.close() }
   }, [htmlContent])
 
-  // ✨ Kupon uygula
   const applyCoupon = async (codeToApply?: string) => {
     const code = (codeToApply || couponInput).trim()
     if (!code || !orderNumber) return
-
-    // Welcome kuponu mu kontrol et
     const welcomeLS = localStorage.getItem('baski-welcome-coupon')
     const isWelcome = welcomeLS && code.toUpperCase() === welcomeLS.toUpperCase()
-
     setCouponLoading(true)
     try {
-      const res = await api.post(
-        `/api/catalog/orders/track/${orderNumber}/apply-coupon`,
-        { code }
-      )
+      const res = await api.post(`/api/catalog/orders/track/${orderNumber}/apply-coupon`, { code })
       setOrder(res.data.data)
       setCouponInput('')
-      // Welcome kuponu uygulandıysa localStorage'dan kaldır
       if (isWelcome) localStorage.removeItem('baski-welcome-coupon')
       setWelcomeCoupon(null)
       toast.success(`Kupon uygulandı: ${res.data.data.couponCode}`)
@@ -151,7 +148,6 @@ function OdemeKatalogContent() {
     }
   }
 
-  // ✨ Kupon kaldır
   const removeCoupon = async () => {
     if (!orderNumber) return
     setCouponLoading(true)
@@ -184,7 +180,6 @@ function OdemeKatalogContent() {
 
   const handleSubmit = async () => {
     if (!validate() || !orderNumber || !order) return
-
     setPaymentLoading(true)
     try {
       const callbackUrl = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/webhook/catalog-payment/callback`
@@ -195,21 +190,16 @@ function OdemeKatalogContent() {
         expireMonth: card.expireMonth.padStart(2, '0'),
         expireYear: card.expireYear,
         cvc: card.cvc,
+        installment: installmentCount,
         callbackUrl,
       })
       const data = res.data.data
-
       if (!data?.success || !data?.htmlContent) {
         toast.error(data?.errorMessage || '3D Secure başlatılamadı')
         return
       }
-
       let html = data.htmlContent
-      try {
-        const decoded = atob(html)
-        if (decoded.includes('<')) html = decoded
-      } catch {}
-
+      try { const decoded = atob(html); if (decoded.includes('<')) html = decoded } catch {}
       setHtmlContent(html)
     } catch (err: any) {
       toast.error(err.response?.data?.message || 'Ödeme başlatılamadı')
@@ -222,7 +212,7 @@ function OdemeKatalogContent() {
     return (
       <>
         <Navbar />
-        <main className="min-h-screen bg-gray-50 dark:bg-[#0a0a0a] flex items-center justify-center">
+        <main className="min-h-screen flex items-center justify-center" style={{ background: 'var(--bg-secondary)' }}>
           <Loader2 size={28} className="animate-spin text-[#F4821F]" />
         </main>
       </>
@@ -233,16 +223,17 @@ function OdemeKatalogContent() {
     return (
       <>
         <Navbar />
-        <main className="min-h-screen bg-gray-50 dark:bg-[#0a0a0a] flex flex-col items-center justify-center py-12 px-4">
+        <main className="min-h-screen flex flex-col items-center justify-center py-12 px-4" style={{ background: 'var(--bg-secondary)' }}>
           <div className="w-full max-w-lg">
             <div className="flex items-center gap-2 mb-4">
               <Lock size={14} className="text-emerald-500" />
-              <p className="text-[13px] text-gray-500">Bankanızın 3D Secure doğrulama sayfası</p>
+              <p className="text-[13px]" style={{ color: 'var(--text-muted)' }}>Bankanızın 3D Secure doğrulama sayfası</p>
             </div>
             <iframe ref={iframeRef}
-              className="w-full rounded-2xl border border-black/[0.07] dark:border-white/[0.07] bg-white"
-              style={{ height: '480px' }} title="3D Secure" />
-            <p className="text-[11px] text-gray-400 text-center mt-3">
+              className="w-full rounded-2xl bg-white"
+              style={{ height: '480px', border: '1px solid var(--border)' }}
+              title="3D Secure" />
+            <p className="text-[11px] text-center mt-3" style={{ color: 'var(--text-muted)' }}>
               Bu sayfa bankanız tarafından sağlanır. Sayfayı yenilemeyin.
             </p>
           </div>
@@ -256,52 +247,55 @@ function OdemeKatalogContent() {
   const subtotal = order?.subtotalTl ?? order?.totalTl ?? 0
   const discount = order?.discountAmountTl ?? 0
   const total = order?.totalTl ?? 0
+  // Taksit seçiliyse taksitli toplam, değilse normal toplam göster
+  const displayTotal = installmentCount > 1 && installmentTotal > 0 ? installmentTotal : total
 
   return (
     <>
       <Navbar />
-      <main className="min-h-screen bg-gray-50 dark:bg-[#0a0a0a] py-12">
-        <div className="max-w-lg mx-auto px-6">
+      <main className="min-h-screen pb-12" style={{ background: 'var(--bg-secondary)' }}>
+        <div className="max-w-lg mx-auto px-4 sm:px-6 py-8">
 
           <button onClick={() => router.push('/sepet')}
-            className="flex items-center gap-1.5 text-[13px] text-gray-400 hover:text-gray-600 transition-colors mb-6">
+            className="flex items-center gap-1.5 text-[13px] mb-6 transition-colors hover:opacity-70"
+            style={{ color: 'var(--text-muted)' }}>
             <ChevronLeft size={15} /> Sepete dön
           </button>
 
-          <h1 className="text-[22px] font-medium tracking-[-0.5px] text-gray-900 dark:text-gray-100 mb-1">
+          <h1 className="text-[22px] font-black tracking-[-0.5px] mb-1" style={{ color: 'var(--text-primary)' }}>
             Ödeme
           </h1>
-          <p className="text-[13px] text-gray-400 mb-8">
-            Tasarımlarınız siparişe eklendi. Kart bilgilerinizi girerek ödemeyi tamamlayın.
+          <p className="text-[13px] mb-6" style={{ color: 'var(--text-muted)' }}>
+            Kart bilgilerinizi girerek ödemeyi tamamlayın
           </p>
 
           {/* Sipariş özeti */}
           {order && (
-            <div className="bg-white dark:bg-[#141414] border border-black/[0.07] dark:border-white/[0.07] rounded-xl p-4 mb-5">
-              <p className="text-[12px] text-gray-400 mb-3">Sipariş #{order.orderNumber}</p>
-
+            <div className="rounded-2xl p-4 mb-4"
+              style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
+              <p className="text-[11px] font-bold uppercase tracking-[1px] mb-3" style={{ color: 'var(--text-muted)' }}>
+                Sipariş #{order.orderNumber}
+              </p>
               <div className="space-y-1.5 mb-3">
                 {order.items.map((it, i) => (
                   <div key={i} className="flex items-start gap-2 text-[11px]">
-                    <Package size={11} className="text-gray-300 mt-0.5 flex-shrink-0" />
+                    <Package size={11} className="mt-0.5 flex-shrink-0" style={{ color: 'var(--text-muted)' }} />
                     <div className="flex-1 min-w-0">
-                      <p className="text-gray-700 dark:text-gray-300 truncate">
-                        {it.productName} <span className="text-gray-400">×{it.tierQty}</span>
+                      <p className="truncate" style={{ color: 'var(--text-secondary)' }}>
+                        {it.productName} <span style={{ color: 'var(--text-muted)' }}>×{it.tierQty}</span>
                       </p>
                       {it.attributesSnapshot && (
-                        <p className="text-gray-400 text-[10px]">{it.attributesSnapshot}</p>
+                        <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>{it.attributesSnapshot}</p>
                       )}
                     </div>
-                    <p className="text-gray-500 flex-shrink-0">₺{fmtTL(it.priceTl)}</p>
+                    <p className="flex-shrink-0" style={{ color: 'var(--text-muted)' }}>₺{fmtTL(it.priceTl)}</p>
                   </div>
                 ))}
               </div>
-
-              {/* ✨ Fiyat detayı: Subtotal + Indirim + Total */}
-              <div className="border-t border-black/[0.07] dark:border-white/[0.07] pt-3 space-y-1.5">
+              <div className="space-y-1.5 pt-3" style={{ borderTop: '1px solid var(--border)' }}>
                 <div className="flex justify-between text-[12px]">
-                  <span className="text-gray-500">Ara Toplam</span>
-                  <span className="text-gray-700 dark:text-gray-300">₺{fmtTL(subtotal)}</span>
+                  <span style={{ color: 'var(--text-muted)' }}>Ara Toplam</span>
+                  <span style={{ color: 'var(--text-secondary)' }}>₺{fmtTL(subtotal)}</span>
                 </div>
                 {hasDiscount && (
                   <div className="flex justify-between text-[12px]">
@@ -311,45 +305,39 @@ function OdemeKatalogContent() {
                     <span className="text-emerald-600 font-medium">−₺{fmtTL(discount)}</span>
                   </div>
                 )}
-                <div className="flex justify-between items-baseline pt-2 border-t border-black/[0.05]">
-                  <span className="text-[14px] font-medium">Toplam</span>
-                  <span className="text-[22px] font-medium text-[#F4821F]">
-                    ₺{fmtTL(total)}
-                  </span>
+                <div className="flex justify-between items-baseline pt-2" style={{ borderTop: '1px solid var(--border)' }}>
+                  <div>
+                    <span className="text-[14px] font-bold" style={{ color: 'var(--text-primary)' }}>Toplam</span>
+                    <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>KDV Dahil</p>
+                  </div>
+                  <span className="text-[24px] font-black text-[#F4821F]">₺{fmtTL(displayTotal)}</span>
                 </div>
-                <p className="text-[10px] text-gray-400 text-right">KDV Dahil</p>
               </div>
             </div>
           )}
 
-          {/* ✨ KUPON BÖLÜMÜ */}
+          {/* Kupon */}
           {order && order.paymentStatus !== 'PAID' && (
-            <div className="bg-white dark:bg-[#141414] border border-black/[0.07] dark:border-white/[0.07] rounded-xl p-4 mb-5">
+            <div className="rounded-2xl p-4 mb-4"
+              style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
               <div className="flex items-center gap-2 mb-3">
-                <Tag size={14} className="text-[#F4821F]" />
-                <p className="text-[13px] font-medium text-gray-900 dark:text-gray-100">
-                  İndirim Kuponu
-                </p>
+                <Tag size={14} style={{ color: '#F4821F' }} />
+                <p className="text-[13px] font-bold" style={{ color: 'var(--text-primary)' }}>İndirim Kuponu</p>
               </div>
 
               {order.couponCode ? (
-                <div className="flex items-center gap-2 p-3 rounded-lg"
+                <div className="flex items-center gap-2 p-3 rounded-xl"
                   style={{ background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.3)' }}>
-                  <div className="w-8 h-8 rounded-lg flex items-center justify-center"
+                  <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
                     style={{ background: 'rgba(16,185,129,0.15)' }}>
                     <Check size={14} className="text-emerald-600" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-[12px] font-bold text-emerald-700 dark:text-emerald-400">
-                      {order.couponCode}
-                    </p>
-                    <p className="text-[10px] text-emerald-600 dark:text-emerald-500">
-                      ₺{fmtTL(discount)} indirim uygulandı
-                    </p>
+                    <p className="text-[12px] font-bold text-emerald-700">{order.couponCode}</p>
+                    <p className="text-[10px] text-emerald-600">₺{fmtTL(discount)} indirim uygulandı</p>
                   </div>
                   <button onClick={removeCoupon} disabled={couponLoading}
-                    className="w-8 h-8 rounded-lg flex items-center justify-center text-emerald-600 hover:bg-emerald-500/10 transition-colors disabled:opacity-40"
-                    title="Kuponu kaldır">
+                    className="w-8 h-8 rounded-lg flex items-center justify-center text-emerald-600 hover:opacity-70 transition-colors disabled:opacity-40">
                     {couponLoading ? <Loader2 size={13} className="animate-spin" /> : <X size={13} />}
                   </button>
                 </div>
@@ -357,34 +345,27 @@ function OdemeKatalogContent() {
                 <>
                   {welcomeCoupon && (
                     <button onClick={() => applyCoupon(welcomeCoupon)} disabled={couponLoading}
-                      className="w-full flex items-center gap-2 p-3 mb-2 rounded-lg transition-all hover:scale-[1.01] disabled:opacity-50"
+                      className="w-full flex items-center gap-2 p-3 mb-2 rounded-xl transition-all hover:scale-[1.01] disabled:opacity-50"
                       style={{ background: 'rgba(244,130,31,0.08)', border: '1px dashed rgba(244,130,31,0.4)' }}>
                       <Gift size={16} className="text-[#F4821F] flex-shrink-0" />
                       <div className="text-left flex-1 min-w-0">
-                        <p className="text-[12px] font-bold text-[#F4821F]">
-                          Hoş geldin kuponunuz var!
-                        </p>
-                        <p className="text-[10px] text-gray-500">
-                          {welcomeCoupon} kodunu uygulamak için tıkla
+                        <p className="text-[12px] font-bold text-[#F4821F]">Hoş geldin kuponunuz var!</p>
+                        <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>
+                          {welcomeCoupon} — uygulamak için tıkla
                         </p>
                       </div>
-                      <span className="text-[10px] font-bold text-[#F4821F]">
-                        Uygula →
-                      </span>
+                      <span className="text-[10px] font-bold text-[#F4821F]">Uygula →</span>
                     </button>
                   )}
-
                   <div className="flex gap-2">
-                    <input type="text"
-                      value={couponInput}
+                    <input type="text" value={couponInput}
                       onChange={e => setCouponInput(e.target.value.toUpperCase())}
                       onKeyDown={e => e.key === 'Enter' && applyCoupon()}
                       placeholder="Kupon kodu girin"
-                      className="flex-1 px-3.5 py-2.5 text-[13px] rounded-lg outline-none uppercase tracking-wider font-mono"
+                      className="flex-1 px-3.5 py-2.5 text-[13px] rounded-xl outline-none uppercase tracking-wider font-mono"
                       style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', color: 'var(--text-primary)' }} />
-                    <button onClick={() => applyCoupon()}
-                      disabled={couponLoading || !couponInput.trim()}
-                      className="px-5 py-2.5 text-[12px] font-bold rounded-lg bg-[#F4821F] text-white hover:bg-[#e07010] transition-colors disabled:opacity-40">
+                    <button onClick={() => applyCoupon()} disabled={couponLoading || !couponInput.trim()}
+                      className="px-5 py-2.5 text-[12px] font-bold rounded-xl bg-[#F4821F] text-white hover:opacity-90 transition-all disabled:opacity-40">
                       {couponLoading ? <Loader2 size={13} className="animate-spin" /> : 'Uygula'}
                     </button>
                   </div>
@@ -395,35 +376,31 @@ function OdemeKatalogContent() {
 
           {/* Tasarım dosyaları */}
           {files.length > 0 && (
-            <div className="bg-white dark:bg-[#141414] border border-black/[0.07] dark:border-white/[0.07] rounded-2xl p-5 mb-5">
+            <div className="rounded-2xl p-4 mb-4"
+              style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
               <div className="flex items-center gap-2 mb-3">
-                <Paperclip size={15} className="text-[#F4821F]" />
-                <p className="text-[14px] font-medium text-gray-900 dark:text-gray-100">
-                  Yüklenen Tasarım Dosyaları
-                  <span className="text-gray-400 text-[12px] font-normal ml-1">({files.length})</span>
+                <Paperclip size={14} style={{ color: '#F4821F' }} />
+                <p className="text-[13px] font-bold" style={{ color: 'var(--text-primary)' }}>
+                  Tasarım Dosyaları <span className="font-normal text-[11px]" style={{ color: 'var(--text-muted)' }}>({files.length})</span>
                 </p>
               </div>
               <div className="space-y-2">
                 {files.map(f => (
-                  <div key={f.id}
-                    className="flex items-center gap-3 p-2.5 rounded-lg"
+                  <div key={f.id} className="flex items-center gap-3 p-2.5 rounded-xl"
                     style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)' }}>
-                    <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0"
+                    <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
                       style={{ background: 'var(--bg-card)' }}>
                       {isImage(f.mimeType, f.originalName)
-                        ? <ImageIcon size={15} className="text-blue-500" />
-                        : <FileText size={15} className="text-red-500" />}
+                        ? <ImageIcon size={13} className="text-blue-500" />
+                        : <FileText size={13} className="text-red-500" />}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-[12px] font-medium truncate"
-                        style={{ color: 'var(--text-primary)' }}>
+                      <p className="text-[12px] font-medium truncate" style={{ color: 'var(--text-primary)' }}>
                         {f.originalName}
                       </p>
-                      <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>
-                        {formatBytes(f.fileSize)}
-                      </p>
+                      <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>{formatBytes(f.fileSize)}</p>
                     </div>
-                    <Check size={14} className="text-emerald-500 flex-shrink-0" />
+                    <Check size={13} className="text-emerald-500 flex-shrink-0" />
                   </div>
                 ))}
               </div>
@@ -431,17 +408,13 @@ function OdemeKatalogContent() {
           )}
 
           {hasDesignSupport && (
-            <div className="rounded-2xl p-4 mb-5"
+            <div className="rounded-2xl p-4 mb-4"
               style={{ background: 'rgba(244,130,31,0.06)', border: '1px solid rgba(244,130,31,0.2)' }}>
               <div className="flex items-start gap-2">
                 <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 text-[16px]"
-                  style={{ background: 'rgba(244,130,31,0.15)' }}>
-                  🎨
-                </div>
+                  style={{ background: 'rgba(244,130,31,0.15)' }}>🎨</div>
                 <div>
-                  <p className="text-[13px] font-bold" style={{ color: 'var(--text-primary)' }}>
-                    Tasarım Desteği Talebi Alındı
-                  </p>
+                  <p className="text-[13px] font-bold" style={{ color: 'var(--text-primary)' }}>Tasarım Desteği Talebi Alındı</p>
                   <p className="text-[11px] mt-0.5" style={{ color: 'var(--text-muted)' }}>
                     Ödeme sonrası tasarım ekibimiz sizinle iletişime geçecek.
                   </p>
@@ -450,80 +423,115 @@ function OdemeKatalogContent() {
             </div>
           )}
 
-          {/* KART BİLGİLERİ */}
-          <div className="bg-white dark:bg-[#141414] border border-black/[0.07] dark:border-white/[0.07] rounded-2xl p-6 space-y-4">
-            <div className="flex items-center gap-2 mb-2">
-              <CreditCard size={16} className="text-gray-400" />
-              <p className="text-[14px] font-medium text-gray-900 dark:text-gray-100">Kart bilgileri</p>
+          {/* Kart bilgileri */}
+          <div className="rounded-2xl p-5 space-y-4"
+            style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
+            <div className="flex items-center gap-2">
+              <CreditCard size={16} style={{ color: 'var(--text-muted)' }} />
+              <p className="text-[14px] font-bold" style={{ color: 'var(--text-primary)' }}>Kart Bilgileri</p>
             </div>
 
+            {/* Kart sahibi */}
             <div>
-              <label className="block text-[12px] font-medium text-gray-600 dark:text-gray-400 mb-1.5">
-                Kart üzerindeki ad soyad
+              <label className="block text-[11px] font-bold uppercase tracking-[1px] mb-1.5"
+                style={{ color: 'var(--text-muted)' }}>
+                Kart Sahibi
               </label>
               <input type="text" placeholder="AD SOYAD"
                 value={card.holderName}
                 onChange={e => setCard(c => ({ ...c, holderName: e.target.value.toUpperCase() }))}
-                className="w-full px-3.5 py-2.5 text-[13px] border border-black/[0.08] dark:border-white/[0.08] rounded-lg bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-gray-100 outline-none focus:border-[#F4821F] transition-colors" />
+                className="w-full px-3.5 py-2.5 text-[13px] rounded-xl outline-none transition-colors"
+                style={{ background: 'var(--bg-secondary)', border: errors.holderName ? '1px solid #EF4444' : '1px solid var(--border)', color: 'var(--text-primary)' }} />
               {errors.holderName && <p className="text-[11px] text-red-500 mt-1">{errors.holderName}</p>}
             </div>
 
+            {/* Kart numarası */}
             <div>
-              <label className="block text-[12px] font-medium text-gray-600 dark:text-gray-400 mb-1.5">
-                Kart numarası
+              <label className="block text-[11px] font-bold uppercase tracking-[1px] mb-1.5"
+                style={{ color: 'var(--text-muted)' }}>
+                Kart Numarası
               </label>
               <input type="text" inputMode="numeric" placeholder="0000 0000 0000 0000"
                 value={card.number}
                 onChange={e => setCard(c => ({ ...c, number: formatCardNumber(e.target.value) }))}
-                className="w-full px-3.5 py-2.5 text-[13px] border border-black/[0.08] dark:border-white/[0.08] rounded-lg bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-gray-100 outline-none focus:border-[#F4821F] transition-colors tracking-widest font-mono" />
+                className="w-full px-3.5 py-2.5 text-[13px] rounded-xl outline-none transition-colors tracking-widest font-mono"
+                style={{ background: 'var(--bg-secondary)', border: errors.number ? '1px solid #EF4444' : '1px solid var(--border)', color: 'var(--text-primary)' }} />
               {errors.number && <p className="text-[11px] text-red-500 mt-1">{errors.number}</p>}
             </div>
 
+            {/* Son kullanma + CVV */}
             <div className="grid grid-cols-3 gap-3">
               <div>
-                <label className="block text-[12px] font-medium text-gray-600 dark:text-gray-400 mb-1.5">Ay</label>
+                <label className="block text-[11px] font-bold uppercase tracking-[1px] mb-1.5"
+                  style={{ color: 'var(--text-muted)' }}>Ay</label>
                 <input type="text" inputMode="numeric" placeholder="MM" maxLength={2}
                   value={card.expireMonth}
                   onChange={e => setCard(c => ({ ...c, expireMonth: e.target.value.replace(/\D/g, '') }))}
-                  className="w-full px-3.5 py-2.5 text-[13px] border border-black/[0.08] dark:border-white/[0.08] rounded-lg bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-gray-100 outline-none focus:border-[#F4821F] transition-colors text-center" />
-                {errors.expireMonth && <p className="text-[11px] text-red-500 mt-1">{errors.expireMonth}</p>}
+                  className="w-full px-3.5 py-2.5 text-[13px] rounded-xl outline-none text-center"
+                  style={{ background: 'var(--bg-secondary)', border: errors.expireMonth ? '1px solid #EF4444' : '1px solid var(--border)', color: 'var(--text-primary)' }} />
+                {errors.expireMonth && <p className="text-[10px] text-red-500 mt-1">{errors.expireMonth}</p>}
               </div>
               <div>
-                <label className="block text-[12px] font-medium text-gray-600 dark:text-gray-400 mb-1.5">Yıl</label>
+                <label className="block text-[11px] font-bold uppercase tracking-[1px] mb-1.5"
+                  style={{ color: 'var(--text-muted)' }}>Yıl</label>
                 <input type="text" inputMode="numeric" placeholder="YY" maxLength={2}
                   value={card.expireYear}
                   onChange={e => setCard(c => ({ ...c, expireYear: e.target.value.replace(/\D/g, '') }))}
-                  className="w-full px-3.5 py-2.5 text-[13px] border border-black/[0.08] dark:border-white/[0.08] rounded-lg bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-gray-100 outline-none focus:border-[#F4821F] transition-colors text-center" />
-                {errors.expireYear && <p className="text-[11px] text-red-500 mt-1">{errors.expireYear}</p>}
+                  className="w-full px-3.5 py-2.5 text-[13px] rounded-xl outline-none text-center"
+                  style={{ background: 'var(--bg-secondary)', border: errors.expireYear ? '1px solid #EF4444' : '1px solid var(--border)', color: 'var(--text-primary)' }} />
+                {errors.expireYear && <p className="text-[10px] text-red-500 mt-1">{errors.expireYear}</p>}
               </div>
               <div>
-                <label className="block text-[12px] font-medium text-gray-600 dark:text-gray-400 mb-1.5">CVV</label>
+                <label className="block text-[11px] font-bold uppercase tracking-[1px] mb-1.5"
+                  style={{ color: 'var(--text-muted)' }}>CVV</label>
                 <input type="password" inputMode="numeric" placeholder="•••" maxLength={4}
                   value={card.cvc}
                   onChange={e => setCard(c => ({ ...c, cvc: e.target.value.replace(/\D/g, '') }))}
-                  className="w-full px-3.5 py-2.5 text-[13px] border border-black/[0.08] dark:border-white/[0.08] rounded-lg bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-gray-100 outline-none focus:border-[#F4821F] transition-colors text-center" />
-                {errors.cvc && <p className="text-[11px] text-red-500 mt-1">{errors.cvc}</p>}
+                  className="w-full px-3.5 py-2.5 text-[13px] rounded-xl outline-none text-center"
+                  style={{ background: 'var(--bg-secondary)', border: errors.cvc ? '1px solid #EF4444' : '1px solid var(--border)', color: 'var(--text-primary)' }} />
+                {errors.cvc && <p className="text-[10px] text-red-500 mt-1">{errors.cvc}</p>}
               </div>
             </div>
 
-            <div className="flex items-start gap-2 p-3 bg-gray-50 dark:bg-white/[0.03] rounded-lg">
-              <Lock size={12} className="text-emerald-500 mt-0.5 flex-shrink-0" />
-              <p className="text-[11px] text-gray-400 leading-relaxed">
+            {/* Taksit seçici — kart numarası 6 haneli olunca görünür */}
+            <InstallmentSelector
+              binNumber={binNumber}
+              totalTl={total}
+              selected={installmentCount}
+              onChange={(count, totalPrice) => {
+                setInstallmentCount(count)
+                setInstallmentTotal(totalPrice)
+              }}
+            />
+
+            {/* Güvenlik notu */}
+            <div className="flex items-start gap-2 p-3 rounded-xl"
+              style={{ background: 'rgba(22,163,74,0.06)', border: '1px solid rgba(22,163,74,0.2)' }}>
+              <Lock size={12} className="text-emerald-600 mt-0.5 flex-shrink-0" />
+              <p className="text-[11px] leading-relaxed" style={{ color: 'var(--text-muted)' }}>
                 Kart bilgileriniz iyzico altyapısı üzerinden 256-bit SSL ile şifrelenerek iletilir. Sistemimizde saklanmaz.
               </p>
             </div>
 
+            {/* Ödeme butonu */}
             <button onClick={handleSubmit} disabled={paymentLoading}
-              className="w-full bg-[#F4821F] text-white text-[14px] font-medium py-3.5 rounded-xl hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center justify-center gap-2">
+              className="w-full flex items-center justify-center gap-2 py-4 text-[14px] font-black text-white rounded-xl transition-all disabled:opacity-50 hover:opacity-90"
+              style={{ background: 'linear-gradient(135deg, #F4821F, #e07010)', boxShadow: '0 6px 14px rgba(244,130,31,0.3)' }}>
               {paymentLoading
                 ? <><Loader2 size={16} className="animate-spin" /> Ödeme başlatılıyor...</>
-                : order ? `₺${fmtTL(total)} öde →` : 'Öde →'}
+                : <>
+                    <Lock size={14} />
+                    ₺{fmtTL(displayTotal)} Güvenli Öde
+                    {installmentCount > 1 && (
+                      <span className="text-[11px] opacity-75">({installmentCount} taksit)</span>
+                    )}
+                  </>}
             </button>
           </div>
 
           <div className="flex items-center justify-center gap-2 mt-5">
-            <Lock size={11} className="text-gray-300" />
-            <p className="text-[11px] text-gray-300">iyzico ile güvenli ödeme</p>
+            <Lock size={11} style={{ color: 'var(--text-muted)' }} />
+            <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>iyzico ile güvenli ödeme</p>
           </div>
         </div>
       </main>
