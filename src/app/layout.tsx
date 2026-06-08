@@ -4,7 +4,7 @@ import './globals.css'
 import { Toaster } from 'react-hot-toast'
 import { ThemeProvider } from '@/components/layout/ThemeProvider'
 import WelcomeDialog from '@/components/ui/WelcomeDialog'
-
+import AnnouncementBar from '@/components/ui/AnnouncementBar'
 export const metadata: Metadata = {
   metadataBase: new URL('https://baskiurunleri.com'),
   title: {
@@ -61,8 +61,9 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="tr" suppressHydrationWarning>
-      <body>
-        <ThemeProvider>
+   <body>
+      <AnnouncementBar />
+      <ThemeProvider>
           {children}
           <Toaster position="top-right" toastOptions={{
             style: { borderRadius: '8px', fontSize: '13px' },
