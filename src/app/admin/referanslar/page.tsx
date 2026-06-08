@@ -5,7 +5,8 @@ import AdminGuard from '@/components/layout/AdminGuard'
 import api from '@/lib/api'
 import toast from 'react-hot-toast'
 import { Plus, Pencil, Trash2, ToggleLeft, ToggleRight, Upload, X, Star, StarOff, FolderOpen, Check } from 'lucide-react'
-const CATEGORIES = ['Tümü', ...Array.from(new Set(references.map(r => r.category))).sort()]
+
+const CATEGORIES = ['Zincir Market', 'İçecek & FMCG', 'Restoran', 'Otel & Turizm', 'Etkinlik & Fuar', 'Diğer']
 const COLORS = ['#E31E24','#003087','#E8000D','#F40009','#D62300','#006491','#F26522','#012169','#8A1538','#1B4F72','#F4821F','#1D9E75','#534AB7']
 
 const emptyForm = { name: '', sector: '', category: CATEGORIES[0], description: '', color: '#F4821F', abbr: '', featured: false, active: true, showText: true, displayOrder: 0, logoUrl: '' }

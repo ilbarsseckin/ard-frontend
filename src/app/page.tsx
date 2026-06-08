@@ -66,11 +66,11 @@ export default function Home() {
         <div className="max-w-7xl mx-auto px-3 sm:px-6 pt-3 sm:pt-6">
           <HeroCarousel />
         </div>
+        <ReferencesSection />
         <BaskiCozumleri />
         <GuvenRozetleri />
         <KampanyaSerit />
-                <FloatingCardsSection />
-
+        <FloatingCardsSection />
         <Favorilerim />
         <UrunlerSection />
         <YeniGelenler />
@@ -80,7 +80,6 @@ export default function Home() {
         <Sektorler />
         <HesaplamaSection />
         <NedenBiz />
-        <ReferencesSection />
         <ReviewsSection />
         <CtaSection />
       </main>
