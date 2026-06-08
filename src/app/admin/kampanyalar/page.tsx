@@ -179,8 +179,8 @@ function KampanyalarInner() {
       ctaText: form.ctaText || null,
       ctaLink: form.ctaLink || null,
       active: form.active,
-      startsAt: form.startsAt || null,
-      endsAt: form.endsAt || null,
+      startsAt: form.startsAt ? new Date(form.startsAt).toISOString() : null,
+      endsAt: form.endsAt ? new Date(form.endsAt).toISOString() : null,
     }
 
     try {

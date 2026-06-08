@@ -60,14 +60,7 @@ export default function ReferencesSection() {
 
         {/* Başlık */}
         <div className="flex flex-col sm:flex-row sm:items-end justify-between mb-10 gap-3">
-          <div>
-            <p className="text-[11px] tracking-[2.5px] uppercase font-bold text-[#F4821F] mb-3">Referanslar</p>
-            <h2 className="text-[32px] font-bold tracking-[-1px]"
-              style={{ color: 'var(--text-primary)', fontFamily: 'Georgia, serif' }}>
-              Türkiye'nin önde gelen<br />
-              <span className="text-[#F4821F]">markalarıyla</span> çalışıyoruz
-            </h2>
-          </div>
+
           <p className="text-[13px] max-w-[220px] text-right"
             style={{ color: 'var(--text-muted)', fontFamily: 'Georgia, serif' }}>
             {active.length}+ kurumsal müşteri,<br />binlerce başarılı proje
