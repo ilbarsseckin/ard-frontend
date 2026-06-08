@@ -86,15 +86,51 @@ function StarRating({ count }: { count: number }) {
   )
 }
 
-export default function ReviewsSection() {
-  const avgRating = 4.9
-  const totalReviews = 840
-
+function ReviewCard({ r }: { r: typeof reviews[0] }) {
   return (
-    <section className="py-16 px-4 sm:px-6 max-w-7xl mx-auto">
+    <div
+      className="rounded-2xl p-5 flex flex-col gap-3 transition-all duration-300 hover:shadow-lg hover:-translate-y-0.5 h-full"
+      style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
+
+      {/* Üst — yıldız + tarih + Google */}
+      <div className="flex items-start justify-between">
+        <div className="flex flex-col gap-1.5">
+          <StarRating count={r.stars} />
+          <span className="text-[10px]" style={{ color: 'var(--text-muted)' }}>{r.time}</span>
+        </div>
+        <div className="flex items-center gap-1 px-2 py-1 rounded-lg flex-shrink-0"
+          style={{ background: 'var(--bg-secondary)' }}>
+          <GoogleLogo />
+          <span className="text-[10px] font-bold" style={{ color: '#4285F4' }}>Google</span>
+        </div>
+      </div>
+
+      {/* Yorum */}
+      <p className="text-[13px] leading-[1.75] flex-1" style={{ color: 'var(--text-secondary)' }}>
+        "{r.text}"
+      </p>
+
+      {/* Kullanıcı */}
+      <div className="flex items-center gap-3 pt-3" style={{ borderTop: '1px solid var(--border)' }}>
+        <div className="w-9 h-9 rounded-full flex items-center justify-center text-white text-[11px] font-black flex-shrink-0"
+          style={{ background: r.color }}>
+          {r.initials}
+        </div>
+        <div className="min-w-0">
+          <p className="text-[13px] font-bold truncate" style={{ color: 'var(--text-primary)' }}>{r.name}</p>
+          <p className="text-[10px] truncate" style={{ color: 'var(--text-muted)' }}>{r.role} · {r.location}</p>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+export default function ReviewsSection() {
+  return (
+    <section className="py-16 max-w-7xl mx-auto">
 
       {/* Başlık */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-10 gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-8 gap-4 px-4 sm:px-6">
         <div>
           <p className="text-[11px] tracking-[2.5px] uppercase font-bold text-[#F4821F] mb-2">Yorumlar</p>
           <h2 className="text-[28px] sm:text-[32px] font-black tracking-[-1px]"
@@ -105,71 +141,41 @@ export default function ReviewsSection() {
 
         {/* Google rating özeti */}
         <a href="https://g.co/kgs/baskiurunleri" target="_blank" rel="noopener noreferrer"
-          className="flex items-center gap-4 px-5 py-3 rounded-2xl transition-all hover:shadow-md flex-shrink-0"
+          className="flex items-center gap-4 px-5 py-3 rounded-2xl transition-all hover:shadow-md flex-shrink-0 self-start sm:self-auto"
           style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
           <GoogleLogo />
           <div>
             <div className="flex items-center gap-2">
-              <span className="text-[22px] font-black" style={{ color: 'var(--text-primary)' }}>
-                {avgRating}
-              </span>
+              <span className="text-[22px] font-black" style={{ color: 'var(--text-primary)' }}>4.9</span>
               <StarRating count={5} />
             </div>
-            <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>
-              {totalReviews} Google yorumu
-            </p>
+            <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>840 Google yorumu</p>
           </div>
         </a>
       </div>
 
-      {/* Yorum kartları */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      {/* MOBİL — yatay kaydırma */}
+      <div className="sm:hidden">
+        <div className="flex gap-3 overflow-x-auto px-4 pb-4 scrollbar-hide"
+          style={{ scrollSnapType: 'x mandatory', WebkitOverflowScrolling: 'touch' }}>
+          {reviews.map((r, i) => (
+            <div key={i} className="flex-shrink-0 w-[300px]" style={{ scrollSnapAlign: 'start' }}>
+              <ReviewCard r={r} />
+            </div>
+          ))}
+          <div className="flex-shrink-0 w-4" />
+        </div>
+      </div>
+
+      {/* MASAÜSTÜ — grid */}
+      <div className="hidden sm:grid grid-cols-2 lg:grid-cols-3 gap-4 px-6">
         {reviews.map((r, i) => (
-          <div key={i}
-            className="rounded-2xl p-5 flex flex-col gap-3 transition-all duration-300 hover:shadow-lg hover:-translate-y-0.5"
-            style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
-
-            {/* Üst — Google logo + yıldız + tarih */}
-            <div className="flex items-start justify-between">
-              <div className="flex flex-col gap-1.5">
-                <StarRating count={r.stars} />
-                <span className="text-[10px]" style={{ color: 'var(--text-muted)' }}>{r.time}</span>
-              </div>
-              <div className="flex items-center gap-1 px-2 py-1 rounded-lg"
-                style={{ background: 'var(--bg-secondary)' }}>
-                <GoogleLogo />
-                <span className="text-[10px] font-bold" style={{ color: '#4285F4' }}>Google</span>
-              </div>
-            </div>
-
-            {/* Yorum metni */}
-            <p className="text-[13px] leading-[1.75] flex-1"
-              style={{ color: 'var(--text-secondary)' }}>
-              "{r.text}"
-            </p>
-
-            {/* Alt — kullanıcı */}
-            <div className="flex items-center gap-3 pt-3"
-              style={{ borderTop: '1px solid var(--border)' }}>
-              <div className="w-9 h-9 rounded-full flex items-center justify-center text-white text-[11px] font-black flex-shrink-0"
-                style={{ background: r.color }}>
-                {r.initials}
-              </div>
-              <div className="min-w-0">
-                <p className="text-[13px] font-bold truncate" style={{ color: 'var(--text-primary)' }}>
-                  {r.name}
-                </p>
-                <p className="text-[10px] truncate" style={{ color: 'var(--text-muted)' }}>
-                  {r.role} · {r.location}
-                </p>
-              </div>
-            </div>
-          </div>
+          <ReviewCard key={i} r={r} />
         ))}
       </div>
 
       {/* Alt link */}
-      <div className="mt-8 text-center">
+      <div className="mt-8 text-center px-4">
         <a href="https://g.co/kgs/baskiurunleri" target="_blank" rel="noopener noreferrer"
           className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-[12px] font-bold transition-all hover:shadow-md"
           style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', color: 'var(--text-secondary)' }}>
