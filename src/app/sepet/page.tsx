@@ -15,7 +15,6 @@ interface Address {
   id: string; title: string; fullName: string
   addressLine: string; district: string; city: string; isDefault: boolean
 }
-
 interface AuthUser {
   id: string; email: string; name: string; phone?: string; role: string
 }
@@ -56,8 +55,6 @@ export default function SepetPage() {
 
   const [selectedSavedAddrId, setSelectedSavedAddrId] = useState<string>('')
   const [editMode, setEditMode] = useState(false)
-
-  // ✨ YENİ: profil kayıt durumu
   const [saveAddressToProfile, setSaveAddressToProfile] = useState(true)
   const [newAddressTitle, setNewAddressTitle] = useState('')
 
@@ -84,7 +81,6 @@ export default function SepetPage() {
 
   useEffect(() => {
     if (!catalogModalOpen) return
-
     if (isLoggedIn && authUser) {
       setOrderForm(f => ({
         ...f,
@@ -93,7 +89,6 @@ export default function SepetPage() {
         customerPhone: f.customerPhone || authUser.phone || '',
       }))
     }
-
     if (hasSavedAddresses && !selectedSavedAddrId) {
       const def = addresses.find(a => a.isDefault) || addresses[0]
       if (def) applySavedAddress(def)
@@ -117,45 +112,33 @@ export default function SepetPage() {
     setEditMode(true)
     setSaveAddressToProfile(true)
     setNewAddressTitle('')
-    setOrderForm(f => ({
-      ...f,
-      customerAddress: '', city: '', district: '',
-    }))
+    setOrderForm(f => ({ ...f, customerAddress: '', city: '', district: '' }))
   }
 
   const handleRemoveStatic = async (id: string) => {
     setRemovingId(id)
-    try {
-      await removeItem(id)
-      toast.success('Ürün sepetten kaldırıldı')
-    } catch {
-      toast.error('Kaldırma işlemi başarısız')
-    } finally {
-      setRemovingId(null)
-    }
+    try { await removeItem(id); toast.success('Ürün kaldırıldı') }
+    catch { toast.error('Kaldırma başarısız') }
+    finally { setRemovingId(null) }
   }
 
   const handleRemoveCatalog = (id: string) => {
     removeCatalogItem(id)
-    toast.success('Katalog ürünü kaldırıldı')
+    toast.success('Ürün kaldırıldı')
   }
 
   const checkout = async () => {
     if (!selectedAddr) { toast.error('Teslimat adresi seçin'); return }
-    if (items.length === 0) { toast.error('Statik ürün sepette yok'); return }
+    if (items.length === 0) { toast.error('Sepet boş'); return }
     setCheckoutLoading(true)
     try {
       await syncFromBackend()
-      if (useCartStore.getState().items.length === 0) {
-        toast.error('Sepetiniz boş'); return
-      }
+      if (useCartStore.getState().items.length === 0) { toast.error('Sepetiniz boş'); return }
       const res = await orderApi.checkout(selectedAddr)
       router.push(`/odeme?siparisId=${res.data.data.orderId}`)
     } catch (err: any) {
       toast.error(err.response?.data?.message || 'Sipariş oluşturulamadı')
-    } finally {
-      setCheckoutLoading(false)
-    }
+    } finally { setCheckoutLoading(false) }
   }
 
   const isValidEmail = (e: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e.trim())
@@ -164,57 +147,39 @@ export default function SepetPage() {
     if (!orderForm.customerName.trim()) { toast.error('Ad soyad zorunlu'); return }
     if (!orderForm.customerPhone.trim()) { toast.error('Telefon zorunlu'); return }
     if (!orderForm.customerAddress.trim()) { toast.error('Adres zorunlu'); return }
-
     if (!isLoggedIn) {
-      if (!orderForm.customerEmail.trim()) {
-        toast.error('Üye değilseniz email zorunlu'); return
-      }
-      if (!isValidEmail(orderForm.customerEmail)) {
-        toast.error('Geçerli email girin'); return
-      }
+      if (!orderForm.customerEmail.trim()) { toast.error('Email zorunlu'); return }
+      if (!isValidEmail(orderForm.customerEmail)) { toast.error('Geçerli email girin'); return }
     }
     if (catalogItems.length === 0) { toast.error('Sepet boş'); return }
 
     setOrderSubmitting(true)
     try {
-      const items = catalogItems.map(it => ({
-        productId: it.productId,
-        tierId: it.tierId,
-        priceTl: it.priceTl,
-        priceUsd: it.priceUsd,
-        kurAtAdd: it.kurAtAdd,
-        attributes: it.attributes.map(a => ({
-          attributeId: a.attributeId,
-          optionId: a.optionId,
-        })),
+      const orderItems = catalogItems.map(it => ({
+        productId: it.productId, tierId: it.tierId,
+        priceTl: it.priceTl, priceUsd: it.priceUsd, kurAtAdd: it.kurAtAdd,
+        attributes: it.attributes.map(a => ({ attributeId: a.attributeId, optionId: a.optionId })),
         designFileIds: it.designFileIds || [],
         designSupport: it.designSupport,
       }))
 
-      const res = await api.post('/api/catalog/orders', { ...orderForm, items })
+      const res = await api.post('/api/catalog/orders', { ...orderForm, items: orderItems })
       const data = res.data.data
 
-      // ✨ Sipariş başarılı — yeni adresi profile kaydet (best-effort)
       if (isLoggedIn && showFullAddressForm && saveAddressToProfile && orderForm.customerAddress.trim()) {
         try {
           await addressApi.add({
             title: newAddressTitle.trim() || `Adres ${addresses.length + 1}`,
-            fullName: orderForm.customerName,
-            phone: orderForm.customerPhone,
+            fullName: orderForm.customerName, phone: orderForm.customerPhone,
             addressLine: orderForm.customerAddress,
-            city: orderForm.city || '',
-            district: orderForm.district || '',
-            isDefault: addresses.length === 0,  // ilk adres ise default
+            city: orderForm.city || '', district: orderForm.district || '',
+            isDefault: addresses.length === 0,
           })
-          toast.success('Adres profile kaydedildi', { duration: 2000 })
-        } catch (err) {
-          console.warn('Adres kaydedilemedi:', err)
-          // sessiz başarısızlık — sipariş geçti zaten
-        }
+        } catch (e) { console.warn('Adres kaydedilemedi:', e) }
       }
 
       if (data.guestAccountCreated) {
-        toast.success(`Hesabınız oluşturuldu! Giriş bilgileri ${orderForm.customerEmail} adresine gönderildi`, { duration: 5000 })
+        toast.success(`Hesabınız oluşturuldu! ${orderForm.customerEmail} adresine giriş bilgileri gönderildi`, { duration: 5000 })
       } else {
         toast.success(`Siparişiniz alındı: ${data.orderNumber}`)
       }
@@ -224,13 +189,10 @@ export default function SepetPage() {
       setOrderForm(EMPTY_FORM)
       setSelectedSavedAddrId('')
       setEditMode(false)
-      setNewAddressTitle('')
       router.push(`/odeme-katalog?siparisNo=${data.orderNumber}`)
     } catch (err: any) {
       toast.error(err.response?.data?.message || 'Sipariş oluşturulamadı')
-    } finally {
-      setOrderSubmitting(false)
-    }
+    } finally { setOrderSubmitting(false) }
   }
 
   const catalogTotalTl = catalogSubtotalTl()
@@ -241,7 +203,7 @@ export default function SepetPage() {
     return (
       <>
         <Navbar />
-        <main className="min-h-screen bg-gray-50 dark:bg-[#0a0a0a] flex items-center justify-center">
+        <main className="min-h-screen flex items-center justify-center" style={{ background: 'var(--bg-secondary)' }}>
           <Loader2 size={28} className="animate-spin text-[#F4821F]" />
         </main>
         <Footer />
@@ -253,13 +215,14 @@ export default function SepetPage() {
     return (
       <>
         <Navbar />
-        <main className="min-h-screen bg-gray-50 dark:bg-[#0a0a0a] flex items-center justify-center">
+        <main className="min-h-screen flex items-center justify-center p-6" style={{ background: 'var(--bg-secondary)' }}>
           <div className="text-center">
-            <ShoppingCart size={40} className="mx-auto mb-4 text-gray-200" />
-            <p className="text-[16px] font-medium mb-1">Sepetiniz boş</p>
-            <button onClick={() => router.push('/')}
-              className="bg-[#F4821F] text-white text-[13px] px-5 py-2.5 rounded-lg hover:opacity-90 mt-4">
-              Ana sayfa
+            <ShoppingCart size={44} className="mx-auto mb-4 opacity-20" style={{ color: 'var(--text-muted)' }} />
+            <p className="text-[18px] font-bold mb-1" style={{ color: 'var(--text-primary)' }}>Sepetiniz boş</p>
+            <p className="text-[13px] mb-5" style={{ color: 'var(--text-muted)' }}>Alışverişe başlamak için ürünleri inceleyin</p>
+            <button onClick={() => router.push('/urunler')}
+              className="bg-[#F4821F] text-white text-[13px] font-bold px-6 py-3 rounded-xl hover:opacity-90">
+              Ürünleri İncele
             </button>
           </div>
         </main>
@@ -271,41 +234,63 @@ export default function SepetPage() {
   return (
     <>
       <Navbar />
-      <main className="min-h-screen bg-gray-50 dark:bg-[#0a0a0a]">
-        <div className="max-w-5xl mx-auto px-6 py-12">
-          <div className="flex items-center justify-between mb-8">
-            <h1 className="text-[24px] font-medium tracking-[-0.5px]">Sepetim</h1>
+      <main className="min-h-screen pb-24" style={{ background: 'var(--bg-secondary)' }}>
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6 sm:py-10">
+
+          {/* Başlık */}
+          <div className="flex items-center justify-between mb-6">
+            <h1 className="text-[20px] sm:text-[24px] font-black tracking-[-0.5px]"
+              style={{ color: 'var(--text-primary)' }}>
+              Sepetim
+              <span className="ml-2 text-[13px] font-medium" style={{ color: 'var(--text-muted)' }}>
+                ({totalCount} ürün)
+              </span>
+            </h1>
             <button onClick={() => { syncFromBackend(); toast.success('Sepet güncellendi') }}
-              className="flex items-center gap-1.5 text-[12px] text-gray-400 hover:text-gray-600 transition-colors">
+              className="flex items-center gap-1.5 text-[12px] transition-colors"
+              style={{ color: 'var(--text-muted)' }}>
               <RefreshCw size={13} /> Yenile
             </button>
           </div>
 
-          <div className="grid grid-cols-3 gap-6">
-            <div className="col-span-2 space-y-6">
+          {/* LAYOUT — mobilde tek kolon, masaüstünde 2/3 + 1/3 */}
+          <div className="flex flex-col lg:grid lg:grid-cols-3 gap-6">
 
+            {/* Sol — ürünler */}
+            <div className="lg:col-span-2 space-y-6 order-2 lg:order-1">
+
+              {/* Statik ürünler */}
               {items.length > 0 && (
                 <section>
-                  <h2 className="text-[11px] font-bold uppercase tracking-[1.5px] text-gray-400 mb-3">
+                  <p className="text-[11px] font-bold uppercase tracking-[1.5px] mb-3"
+                    style={{ color: 'var(--text-muted)' }}>
                     Sipariş Ürünleri ({items.length})
-                  </h2>
+                  </p>
                   <div className="space-y-3">
                     {items.map(item => (
                       <div key={item.id}
-                        className={`bg-white dark:bg-[#141414] border border-black/[0.07] rounded-xl p-4 transition-opacity ${removingId === item.id ? 'opacity-40' : ''}`}>
-                        <div className="flex justify-between items-start">
+                        className={`rounded-2xl p-4 transition-opacity ${removingId === item.id ? 'opacity-40' : ''}`}
+                        style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
+                        <div className="flex justify-between items-start gap-3">
                           <div className="flex-1 min-w-0">
-                            <p className="text-[14px] font-medium">{item.productName}</p>
-                            <p className="text-[12px] text-gray-400 mt-0.5">{item.priceBreakdown}</p>
+                            <p className="text-[14px] font-bold truncate" style={{ color: 'var(--text-primary)' }}>
+                              {item.productName}
+                            </p>
+                            <p className="text-[12px] mt-0.5" style={{ color: 'var(--text-muted)' }}>
+                              {item.priceBreakdown}
+                            </p>
                           </div>
-                          <div className="flex items-center gap-3 ml-4">
-                            <p className="text-[16px] font-medium">
+                          <div className="flex items-center gap-2 flex-shrink-0">
+                            <p className="text-[16px] font-black text-[#F4821F]">
                               ₺{item.totalPrice.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}
                             </p>
                             <button onClick={() => handleRemoveStatic(item.id)}
                               disabled={removingId === item.id}
-                              className="w-8 h-8 rounded-lg border border-black/[0.08] flex items-center justify-center text-gray-400 hover:text-red-500 transition-colors disabled:opacity-40">
-                              {removingId === item.id ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
+                              className="w-8 h-8 rounded-lg flex items-center justify-center transition-colors hover:text-red-500 disabled:opacity-40"
+                              style={{ border: '1px solid var(--border)', color: 'var(--text-muted)' }}>
+                              {removingId === item.id
+                                ? <Loader2 size={13} className="animate-spin" />
+                                : <Trash2 size={13} />}
                             </button>
                           </div>
                         </div>
@@ -315,11 +300,13 @@ export default function SepetPage() {
                 </section>
               )}
 
+              {/* Katalog ürünleri */}
               {catalogItems.length > 0 && (
                 <section>
-                  <h2 className="text-[11px] font-bold uppercase tracking-[1.5px] text-gray-400 mb-3">
+                  <p className="text-[11px] font-bold uppercase tracking-[1.5px] mb-3"
+                    style={{ color: 'var(--text-muted)' }}>
                     Katalog Ürünleri ({catalogItems.length})
-                  </h2>
+                  </p>
                   <div className="space-y-3">
                     {catalogItems.map(item => {
                       const fileCount = item.designFileIds?.length || 0
@@ -327,281 +314,310 @@ export default function SepetPage() {
                       const hasDesign = fileCount > 0 || hasSupport
                       const notesExpanded = expandedNotesId === item.id
                       return (
-                        <div key={item.id}
-                          className="bg-white dark:bg-[#141414] border border-black/[0.07] rounded-xl p-4">
-                          <div className="flex gap-4">
-                            <div className="w-16 h-16 rounded-lg overflow-hidden flex-shrink-0"
-                              style={{ background: 'linear-gradient(135deg, #f3f4f6, #e5e7eb)' }}>
+                        <div key={item.id} className="rounded-2xl p-4"
+                          style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
+                          <div className="flex gap-3">
+                            {/* Görsel */}
+                            <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-xl overflow-hidden flex-shrink-0"
+                              style={{ background: 'var(--bg-secondary)' }}>
                               {item.mainImageUrl
                                 ? <img src={item.mainImageUrl} alt={item.productName} className="w-full h-full object-cover" />
-                                : <Package size={20} className="text-gray-300 m-auto mt-5" />}
+                                : <div className="w-full h-full flex items-center justify-center">
+                                    <Package size={20} style={{ color: 'var(--text-muted)' }} />
+                                  </div>}
                             </div>
+
+                            {/* İçerik */}
                             <div className="flex-1 min-w-0">
-                              <p className="text-[14px] font-medium">{item.productName}</p>
-                              <p className="text-[11px] text-gray-400 mt-0.5">
+                              <div className="flex items-start justify-between gap-2">
+                                <p className="text-[13px] sm:text-[14px] font-bold leading-tight"
+                                  style={{ color: 'var(--text-primary)' }}>
+                                  {item.productName}
+                                </p>
+                                <button onClick={() => handleRemoveCatalog(item.id)}
+                                  className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 hover:text-red-500 transition-colors"
+                                  style={{ border: '1px solid var(--border)', color: 'var(--text-muted)' }}>
+                                  <Trash2 size={12} />
+                                </button>
+                              </div>
+
+                              <p className="text-[11px] mt-0.5" style={{ color: 'var(--text-muted)' }}>
                                 {item.categoryName} · {item.tierQty.toLocaleString('tr-TR')} adet
                               </p>
+
                               {item.attributes.length > 0 && (
-                                <div className="flex flex-wrap gap-1 mt-2">
+                                <div className="flex flex-wrap gap-1 mt-1.5">
                                   {item.attributes.map(a => (
-                                    <span key={a.attributeId} className="text-[10px] font-medium px-1.5 py-0.5 rounded"
-                                      style={{ background: 'rgba(244,130,31,0.08)', color: '#F4821F' }}>
+                                    <span key={a.attributeId}
+                                      className="text-[10px] font-medium px-1.5 py-0.5 rounded-md"
+                                      style={{ background: 'rgba(244,130,31,0.1)', color: '#F4821F' }}>
                                       {a.label}: {a.optionValue}
                                     </span>
                                   ))}
                                 </div>
                               )}
-                              <div className="mt-2">
-                                {fileCount > 0 && (
-                                  <div className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md"
-                                    style={{ background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.25)' }}>
-                                    <Check size={11} className="text-emerald-600" />
-                                    <span className="text-[11px] font-bold text-emerald-700">{fileCount} tasarım yüklendi</span>
-                                  </div>
-                                )}
-                                {hasSupport && (
-                                  <button onClick={() => setExpandedNotesId(notesExpanded ? null : item.id)}
-                                    className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md hover:bg-orange-500/15 transition-colors"
-                                    style={{ background: 'rgba(244,130,31,0.1)', border: '1px solid rgba(244,130,31,0.25)' }}>
-                                    <Palette size={11} className="text-[#F4821F]" />
-                                    <span className="text-[11px] font-bold text-[#F4821F]">
-                                      Tasarım Desteği {notesExpanded ? '▲' : '▼'}
+
+                              <div className="flex items-center justify-between mt-2">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  {fileCount > 0 && (
+                                    <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-md"
+                                      style={{ background: 'rgba(16,185,129,0.1)', color: '#059669' }}>
+                                      <Check size={10} /> {fileCount} dosya
                                     </span>
-                                  </button>
-                                )}
-                                {!hasDesign && (
-                                  <div className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md"
-                                    style={{ background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.25)' }}>
-                                    <AlertTriangle size={11} className="text-amber-600" />
-                                    <span className="text-[11px] font-bold text-amber-700">Tasarım eksik</span>
-                                  </div>
-                                )}
-                                {hasSupport && notesExpanded && (
-                                  <div className="mt-2 p-2.5 rounded-lg text-[11px] leading-relaxed"
-                                    style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)' }}>
-                                    {item.designSupport?.notes || '(not yok)'}
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                            <div className="flex items-start gap-3 flex-shrink-0">
-                              <div className="text-right">
-                                <p className="text-[16px] font-medium">
+                                  )}
+                                  {hasSupport && (
+                                    <button onClick={() => setExpandedNotesId(notesExpanded ? null : item.id)}
+                                      className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-md"
+                                      style={{ background: 'rgba(244,130,31,0.1)', color: '#F4821F' }}>
+                                      <Palette size={10} /> Tasarım Desteği {notesExpanded ? '▲' : '▼'}
+                                    </button>
+                                  )}
+                                  {!hasDesign && (
+                                    <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-md"
+                                      style={{ background: 'rgba(245,158,11,0.1)', color: '#D97706' }}>
+                                      <AlertTriangle size={10} /> Tasarım eksik
+                                    </span>
+                                  )}
+                                </div>
+                                <p className="text-[15px] font-black text-[#F4821F] flex-shrink-0">
                                   ₺{Number(item.priceTl).toLocaleString('tr-TR', { maximumFractionDigits: 0 })}
                                 </p>
-                                <p className="text-[10px] text-gray-400">KDV Dahil</p>
                               </div>
-                              <button onClick={() => handleRemoveCatalog(item.id)}
-                                className="w-8 h-8 rounded-lg border border-black/[0.08] flex items-center justify-center text-gray-400 hover:text-red-500 transition-colors">
-                                <Trash2 size={13} />
-                              </button>
+
+                              {hasSupport && notesExpanded && (
+                                <div className="mt-2 p-2.5 rounded-lg text-[11px] leading-relaxed"
+                                  style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)' }}>
+                                  {item.designSupport?.notes || '(not yok)'}
+                                </div>
+                              )}
                             </div>
                           </div>
                         </div>
                       )
                     })}
                   </div>
-                  <button onClick={() => setCatalogModalOpen(true)}
-                    className="mt-4 w-full bg-[#F4821F] text-white text-[13px] font-bold py-3 rounded-xl hover:opacity-90 flex items-center justify-center gap-2">
-                    <Send size={14} />
-                    Siparişi Tamamla (₺{catalogTotalTl.toLocaleString('tr-TR', { maximumFractionDigits: 0 })})
-                  </button>
                 </section>
               )}
             </div>
 
-            <div className="space-y-3">
+            {/* Sağ — özet + ödeme */}
+            <div className="order-1 lg:order-2 space-y-3">
+
+              {/* Teslimat adresi — sadece statik ürünler için */}
               {items.length > 0 && (
-                <div className="bg-white dark:bg-[#141414] border border-black/[0.07] rounded-xl p-4">
+                <div className="rounded-2xl p-4"
+                  style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
                   <div className="flex items-center gap-2 mb-3">
-                    <MapPin size={14} className="text-gray-400" />
-                    <p className="text-[13px] font-medium">Teslimat adresi</p>
+                    <MapPin size={14} style={{ color: '#F4821F' }} />
+                    <p className="text-[13px] font-bold" style={{ color: 'var(--text-primary)' }}>Teslimat Adresi</p>
                   </div>
                   {addresses.length > 0 ? (
                     <div className="space-y-2">
                       {addresses.map(a => (
                         <label key={a.id}
-                          className={`flex items-start gap-2.5 p-2.5 rounded-lg cursor-pointer border transition-colors ${
-                            selectedAddr === a.id ? 'border-[#F4821F] bg-orange-50' : 'border-black/[0.05]'
-                          }`}>
+                          className="flex items-start gap-2.5 p-2.5 rounded-xl cursor-pointer transition-all"
+                          style={{
+                            border: selectedAddr === a.id ? '1.5px solid #F4821F' : '1px solid var(--border)',
+                            background: selectedAddr === a.id ? 'rgba(244,130,31,0.05)' : 'var(--bg-secondary)',
+                          }}>
                           <input type="radio" name="addr-static" value={a.id}
                             checked={selectedAddr === a.id}
-                            onChange={() => setSelectedAddr(a.id)} className="mt-0.5" />
+                            onChange={() => setSelectedAddr(a.id)}
+                            className="mt-0.5 accent-[#F4821F]" />
                           <div>
-                            <p className="text-[12px] font-medium">{a.title}</p>
-                            <p className="text-[11px] text-gray-400">{a.addressLine}, {a.district}/{a.city}</p>
+                            <p className="text-[12px] font-bold" style={{ color: 'var(--text-primary)' }}>{a.title}</p>
+                            <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>
+                              {a.addressLine}, {a.district}/{a.city}
+                            </p>
                           </div>
                         </label>
                       ))}
                     </div>
                   ) : (
-                    <p className="text-[11px] text-gray-400">
-                      Henüz kayıtlı adres yok. Sipariş verirken adres ekleyebilirsiniz.
+                    <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>
+                      Henüz kayıtlı adres yok.
                     </p>
                   )}
                 </div>
               )}
 
-              <div className="bg-white dark:bg-[#141414] border border-black/[0.07] rounded-xl p-4">
-                <div className="space-y-2 mb-3">
+              {/* Sipariş özeti */}
+              <div className="rounded-2xl p-4"
+                style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
+                <p className="text-[12px] font-bold mb-3" style={{ color: 'var(--text-primary)' }}>Sipariş Özeti</p>
+                <div className="space-y-1.5 mb-3">
                   {items.map(item => (
-                    <div key={item.id} className="flex justify-between text-[12px] text-gray-400">
-                      <span className="truncate mr-2 max-w-[130px]">{item.productName}</span>
+                    <div key={item.id} className="flex justify-between text-[12px]" style={{ color: 'var(--text-muted)' }}>
+                      <span className="truncate mr-2 max-w-[140px]">{item.productName}</span>
                       <span>₺{item.totalPrice.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}</span>
                     </div>
                   ))}
                   {catalogItems.map(item => (
-                    <div key={item.id} className="flex justify-between text-[12px] text-gray-400">
-                      <span className="truncate mr-2 max-w-[130px]">{item.productName} <span className="text-[10px]">×{item.tierQty}</span></span>
+                    <div key={item.id} className="flex justify-between text-[12px]" style={{ color: 'var(--text-muted)' }}>
+                      <span className="truncate mr-2 max-w-[140px]">
+                        {item.productName}
+                        <span className="text-[10px] ml-1">×{item.tierQty}</span>
+                      </span>
                       <span>₺{Number(item.priceTl).toLocaleString('tr-TR', { maximumFractionDigits: 0 })}</span>
                     </div>
                   ))}
                 </div>
-                <div className="flex justify-between text-[12px] text-gray-400 mb-1">
-                  <span>Kargo</span><span className="text-emerald-600">Ücretsiz</span>
+                <div className="flex justify-between text-[12px] mb-2" style={{ color: 'var(--text-muted)' }}>
+                  <span>Kargo</span>
+                  <span className="text-green-600 font-bold">Ücretsiz</span>
                 </div>
-                <div className="border-t border-black/[0.07] pt-3 flex justify-between items-baseline">
+                <div className="flex justify-between items-center pt-3"
+                  style={{ borderTop: '1px solid var(--border)' }}>
                   <div>
-                    <span className="text-[14px] font-medium block">Toplam</span>
-                    <span className="text-[10px] text-gray-400">KDV Dahil</span>
+                    <p className="text-[13px] font-bold" style={{ color: 'var(--text-primary)' }}>Toplam</p>
+                    <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>KDV Dahil</p>
                   </div>
-                  <span className="text-[18px] font-medium text-[#F4821F]">
+                  <p className="text-[22px] font-black text-[#F4821F]">
                     ₺{grandTotal.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}
-                  </span>
+                  </p>
                 </div>
               </div>
 
+              {/* Butonlar */}
+              {catalogItems.length > 0 && (
+                <button onClick={() => setCatalogModalOpen(true)}
+                  className="w-full flex items-center justify-center gap-2 py-3.5 text-[14px] font-bold text-white rounded-2xl transition-all hover:opacity-90"
+                  style={{ background: 'linear-gradient(135deg, #F4821F, #e07010)', boxShadow: '0 6px 14px rgba(244,130,31,0.3)' }}>
+                  <Send size={15} />
+                  Siparişi Tamamla
+                  <span className="text-[12px] opacity-80">
+                    (₺{catalogTotalTl.toLocaleString('tr-TR', { maximumFractionDigits: 0 })})
+                  </span>
+                </button>
+              )}
+
               {items.length > 0 && (
                 <button onClick={checkout} disabled={checkoutLoading || !selectedAddr}
-                  className="w-full bg-[#F4821F] text-white text-[14px] font-medium py-3.5 rounded-xl hover:opacity-90 disabled:opacity-50 flex items-center justify-center gap-2">
-                  {checkoutLoading ? <><Loader2 size={16} className="animate-spin" /> İşleniyor...</> : 'Statik ürünleri sipariş ver →'}
+                  className="w-full flex items-center justify-center gap-2 py-3 text-[13px] font-bold text-white rounded-2xl transition-all disabled:opacity-50"
+                  style={{ background: '#1a1a1a' }}>
+                  {checkoutLoading
+                    ? <><Loader2 size={15} className="animate-spin" /> İşleniyor...</>
+                    : 'Ödemeye Geç →'}
                 </button>
               )}
             </div>
           </div>
         </div>
 
-        {/* ═══ KATALOG MODAL ═══ */}
+        {/* ═══ KATALOG SİPARİŞ MODAL ═══ */}
         {catalogModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center"
             style={{ background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }}
             onClick={() => setCatalogModalOpen(false)}>
             <div onClick={e => e.stopPropagation()}
-              className="w-full max-w-lg rounded-2xl p-6 max-h-[90vh] overflow-y-auto bg-white dark:bg-[#141414]"
-              style={{ border: '1px solid var(--border)' }}>
+              className="w-full sm:max-w-lg rounded-t-3xl sm:rounded-2xl max-h-[92vh] overflow-y-auto"
+              style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
 
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-[16px] font-bold">Sipariş Bilgileri</h3>
+              {/* Modal başlık */}
+              <div className="sticky top-0 flex items-center justify-between px-5 py-4 z-10"
+                style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border)' }}>
+                <h3 className="text-[16px] font-bold" style={{ color: 'var(--text-primary)' }}>
+                  Sipariş Bilgileri
+                </h3>
                 <button onClick={() => setCatalogModalOpen(false)}
-                  className="w-8 h-8 rounded-lg flex items-center justify-center"
+                  className="w-8 h-8 rounded-full flex items-center justify-center"
                   style={{ border: '1px solid var(--border)', color: 'var(--text-muted)' }}>
-                  <X size={14} />
+                  <X size={15} />
                 </button>
               </div>
 
-              {/* Login durumu banner */}
-              {isLoggedIn ? (
-                <div className="rounded-lg p-3 mb-4 flex items-center gap-3"
-                  style={{ background: 'rgba(16,185,129,0.06)', border: '1px solid rgba(16,185,129,0.25)' }}>
-                  <UserCircle size={18} className="text-emerald-600 flex-shrink-0" />
-                  <div className="min-w-0">
-                    <p className="text-[12px] font-bold">Giriş yaptınız</p>
-                    <p className="text-[11px] truncate" style={{ color: 'var(--text-muted)' }}>{authUser?.email}</p>
-                  </div>
-                </div>
-              ) : (
-                <div className="rounded-lg p-3 mb-4"
-                  style={{ background: 'rgba(244,130,31,0.06)', border: '1px solid rgba(244,130,31,0.2)' }}>
-                  <div className="flex items-start gap-2">
-                    <KeyRound size={14} className="text-[#F4821F] mt-0.5 flex-shrink-0" />
-                    <div>
-                      <p className="text-[12px] font-bold">Üye olmadan sipariş veriyorsunuz</p>
-                      <p className="text-[11px] mt-0.5 leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
-                        Sipariş tamamlanınca <strong>emailinize giriş şifreniz</strong> gönderilir.
-                      </p>
+              <div className="p-5 space-y-4">
+
+                {/* Login banner */}
+                {isLoggedIn ? (
+                  <div className="rounded-xl p-3 flex items-center gap-3"
+                    style={{ background: 'rgba(16,185,129,0.06)', border: '1px solid rgba(16,185,129,0.2)' }}>
+                    <UserCircle size={18} className="text-emerald-600 flex-shrink-0" />
+                    <div className="min-w-0">
+                      <p className="text-[12px] font-bold">Giriş yaptınız</p>
+                      <p className="text-[11px] truncate" style={{ color: 'var(--text-muted)' }}>{authUser?.email}</p>
                     </div>
                   </div>
-                  <button onClick={() => router.push(`/giris?next=${encodeURIComponent('/sepet')}`)}
-                    className="mt-2 w-full text-[11px] font-bold py-1.5 rounded-lg hover:bg-orange-500/10 transition-colors"
-                    style={{ color: '#F4821F' }}>
-                    Zaten hesabınız var mı? Giriş yap →
-                  </button>
-                </div>
-              )}
-
-              {/* Özet */}
-              <div className="rounded-lg p-3 mb-4"
-                style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)' }}>
-                <p className="text-[12px]" style={{ color: 'var(--text-muted)' }}>
-                  {catalogItems.length} ürün · KDV Dahil
-                </p>
-                <p className="text-[18px] font-black" style={{ color: '#F4821F' }}>
-                  ₺{catalogTotalTl.toLocaleString('tr-TR', { maximumFractionDigits: 0 })}
-                </p>
-              </div>
-
-              {/* Kayıtlı adres seçici */}
-              {hasSavedAddresses && (
-                <div className="mb-4">
-                  <label className="text-[11px] font-bold uppercase tracking-[1px] mb-2 flex items-center gap-1.5"
-                    style={{ color: 'var(--text-muted)' }}>
-                    <MapPin size={11} /> Teslimat Adresi
-                  </label>
-                  <div className="space-y-2">
-                    {addresses.map(a => (
-                      <label key={a.id}
-                        className="flex items-start gap-2.5 p-3 rounded-lg cursor-pointer transition-colors"
-                        style={{
-                          background: selectedSavedAddrId === a.id ? 'rgba(244,130,31,0.08)' : 'var(--bg-secondary)',
-                          border: selectedSavedAddrId === a.id ? '1.5px solid #F4821F' : '1px solid var(--border)',
-                        }}>
-                        <input type="radio" name="catalog-addr"
-                          checked={selectedSavedAddrId === a.id}
-                          onChange={() => applySavedAddress(a)}
-                          className="mt-0.5 accent-[#F4821F]" />
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2">
-                            <p className="text-[12px] font-bold">{a.title}</p>
-                            {a.isDefault && (
-                              <span className="text-[9px] px-1.5 py-0.5 rounded font-bold"
-                                style={{ background: 'rgba(244,130,31,0.15)', color: '#F4821F' }}>
-                                Varsayılan
-                              </span>
-                            )}
-                          </div>
-                          <p className="text-[11px] mt-0.5 leading-snug" style={{ color: 'var(--text-muted)' }}>
-                            {a.addressLine}, {a.district}/{a.city}
-                          </p>
-                        </div>
-                      </label>
-                    ))}
-
-                    <button type="button" onClick={handleNewAddress}
-                      className="w-full flex items-center justify-center gap-1.5 py-2 text-[11px] font-bold rounded-lg transition-colors"
-                      style={{
-                        border: editMode ? '1.5px solid #F4821F' : '1px dashed var(--border)',
-                        background: editMode ? 'rgba(244,130,31,0.05)' : 'transparent',
-                        color: editMode ? '#F4821F' : 'var(--text-muted)',
-                      }}>
-                      <Plus size={11} /> Yeni adres
+                ) : (
+                  <div className="rounded-xl p-3"
+                    style={{ background: 'rgba(244,130,31,0.06)', border: '1px solid rgba(244,130,31,0.2)' }}>
+                    <div className="flex items-start gap-2">
+                      <KeyRound size={14} className="text-[#F4821F] mt-0.5 flex-shrink-0" />
+                      <div>
+                        <p className="text-[12px] font-bold">Üye olmadan sipariş veriyorsunuz</p>
+                        <p className="text-[11px] mt-0.5 leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
+                          Sipariş sonrası emailinize giriş şifreniz gönderilir.
+                        </p>
+                      </div>
+                    </div>
+                    <button onClick={() => router.push(`/giris?next=${encodeURIComponent('/sepet')}`)}
+                      className="mt-2 w-full text-[11px] font-bold py-1.5 rounded-lg hover:opacity-80 transition-colors"
+                      style={{ color: '#F4821F' }}>
+                      Hesabınız var mı? Giriş yap →
                     </button>
                   </div>
-                </div>
-              )}
+                )}
 
-              {/* Login + adres yok hint */}
-              {isLoggedIn && !hasSavedAddresses && (
-                <div className="mb-4 p-3 rounded-lg text-[11px] flex items-start gap-2"
-                  style={{ background: 'rgba(59,130,246,0.06)', border: '1px solid rgba(59,130,246,0.2)' }}>
-                  <MapPin size={12} className="text-blue-600 flex-shrink-0 mt-0.5" />
-                  <p style={{ color: 'var(--text-secondary)' }}>
-                    Henüz kayıtlı adresiniz yok. Aşağıdaki adresi <strong>profilinize kaydedebilirsiniz</strong>
-                    {' '}— bir sonraki siparişte hızlı seçim için.
+                {/* Özet */}
+                <div className="flex items-center justify-between px-4 py-3 rounded-xl"
+                  style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)' }}>
+                  <p className="text-[12px]" style={{ color: 'var(--text-muted)' }}>
+                    {catalogItems.length} ürün · KDV Dahil
+                  </p>
+                  <p className="text-[20px] font-black text-[#F4821F]">
+                    ₺{catalogTotalTl.toLocaleString('tr-TR', { maximumFractionDigits: 0 })}
                   </p>
                 </div>
-              )}
 
-              <div className="space-y-3">
+                {/* Kayıtlı adres */}
+                {hasSavedAddresses && (
+                  <div>
+                    <label className="text-[11px] font-bold uppercase tracking-[1px] mb-2 flex items-center gap-1.5"
+                      style={{ color: 'var(--text-muted)' }}>
+                      <MapPin size={11} /> Teslimat Adresi
+                    </label>
+                    <div className="space-y-2">
+                      {addresses.map(a => (
+                        <label key={a.id}
+                          className="flex items-start gap-2.5 p-3 rounded-xl cursor-pointer transition-all"
+                          style={{
+                            background: selectedSavedAddrId === a.id ? 'rgba(244,130,31,0.08)' : 'var(--bg-secondary)',
+                            border: selectedSavedAddrId === a.id ? '1.5px solid #F4821F' : '1px solid var(--border)',
+                          }}>
+                          <input type="radio" name="catalog-addr"
+                            checked={selectedSavedAddrId === a.id}
+                            onChange={() => applySavedAddress(a)}
+                            className="mt-0.5 accent-[#F4821F]" />
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <p className="text-[12px] font-bold" style={{ color: 'var(--text-primary)' }}>{a.title}</p>
+                              {a.isDefault && (
+                                <span className="text-[9px] px-1.5 py-0.5 rounded font-bold"
+                                  style={{ background: 'rgba(244,130,31,0.15)', color: '#F4821F' }}>
+                                  Varsayılan
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-[11px] mt-0.5" style={{ color: 'var(--text-muted)' }}>
+                              {a.addressLine}, {a.district}/{a.city}
+                            </p>
+                          </div>
+                        </label>
+                      ))}
+                      <button type="button" onClick={handleNewAddress}
+                        className="w-full flex items-center justify-center gap-1.5 py-2 text-[11px] font-bold rounded-xl transition-all"
+                        style={{
+                          border: editMode ? '1.5px solid #F4821F' : '1px dashed var(--border)',
+                          color: editMode ? '#F4821F' : 'var(--text-muted)',
+                          background: editMode ? 'rgba(244,130,31,0.05)' : 'transparent',
+                        }}>
+                        <Plus size={11} /> Yeni adres ekle
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Form alanları */}
                 {(!isLoggedIn || showFullAddressForm) && (
                   <div>
                     <label className="block text-[11px] font-bold uppercase tracking-[1px] mb-1.5"
@@ -611,8 +627,8 @@ export default function SepetPage() {
                     <input value={orderForm.customerName}
                       onChange={e => setOrderForm(f => ({ ...f, customerName: e.target.value }))}
                       placeholder="Ahmet Yılmaz"
-                      className="w-full px-3.5 py-2.5 text-[13px] rounded-lg outline-none"
-                      style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)' }} />
+                      className="w-full px-3.5 py-2.5 text-[13px] rounded-xl outline-none"
+                      style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', color: 'var(--text-primary)' }} />
                   </div>
                 )}
 
@@ -625,8 +641,8 @@ export default function SepetPage() {
                     <input value={orderForm.customerPhone}
                       onChange={e => setOrderForm(f => ({ ...f, customerPhone: e.target.value }))}
                       placeholder="0555 555 55 55"
-                      className="w-full px-3.5 py-2.5 text-[13px] rounded-lg outline-none"
-                      style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)' }} />
+                      className="w-full px-3.5 py-2.5 text-[13px] rounded-xl outline-none"
+                      style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', color: 'var(--text-primary)' }} />
                   </div>
                   {!isLoggedIn && (
                     <div>
@@ -637,13 +653,12 @@ export default function SepetPage() {
                       <input value={orderForm.customerEmail}
                         onChange={e => setOrderForm(f => ({ ...f, customerEmail: e.target.value }))}
                         placeholder="mail@adres.com"
-                        className="w-full px-3.5 py-2.5 text-[13px] rounded-lg outline-none"
-                        style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)' }} />
+                        className="w-full px-3.5 py-2.5 text-[13px] rounded-xl outline-none"
+                        style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', color: 'var(--text-primary)' }} />
                     </div>
                   )}
                 </div>
 
-                {/* Adres alanları — guest veya yeni/edit mode'da */}
                 {showFullAddressForm && (
                   <>
                     <div>
@@ -653,12 +668,10 @@ export default function SepetPage() {
                       </label>
                       <textarea value={orderForm.customerAddress}
                         onChange={e => setOrderForm(f => ({ ...f, customerAddress: e.target.value }))}
-                        rows={2}
-                        placeholder="Mahalle, sokak, kapı no..."
-                        className="w-full px-3.5 py-2.5 text-[13px] rounded-lg outline-none resize-none"
-                        style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)' }} />
+                        rows={2} placeholder="Mahalle, sokak, kapı no..."
+                        className="w-full px-3.5 py-2.5 text-[13px] rounded-xl outline-none resize-none"
+                        style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', color: 'var(--text-primary)' }} />
                     </div>
-
                     <div className="grid grid-cols-2 gap-3">
                       <div>
                         <label className="block text-[11px] font-bold uppercase tracking-[1px] mb-1.5"
@@ -666,8 +679,8 @@ export default function SepetPage() {
                         <input value={orderForm.city}
                           onChange={e => setOrderForm(f => ({ ...f, city: e.target.value }))}
                           placeholder="Gaziantep"
-                          className="w-full px-3.5 py-2.5 text-[13px] rounded-lg outline-none"
-                          style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)' }} />
+                          className="w-full px-3.5 py-2.5 text-[13px] rounded-xl outline-none"
+                          style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', color: 'var(--text-primary)' }} />
                       </div>
                       <div>
                         <label className="block text-[11px] font-bold uppercase tracking-[1px] mb-1.5"
@@ -675,44 +688,42 @@ export default function SepetPage() {
                         <input value={orderForm.district}
                           onChange={e => setOrderForm(f => ({ ...f, district: e.target.value }))}
                           placeholder="Şehitkamil"
-                          className="w-full px-3.5 py-2.5 text-[13px] rounded-lg outline-none"
-                          style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)' }} />
+                          className="w-full px-3.5 py-2.5 text-[13px] rounded-xl outline-none"
+                          style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', color: 'var(--text-primary)' }} />
                       </div>
                     </div>
 
-                    {/* ✨ ADRESİ PROFİLE KAYDET — sadece login kullanıcıya */}
                     {isLoggedIn && (
-                      <div className="rounded-lg p-3"
+                      <div className="rounded-xl p-3"
                         style={{ background: 'rgba(244,130,31,0.04)', border: '1px solid rgba(244,130,31,0.2)' }}>
                         <label className="flex items-start gap-2 cursor-pointer">
-                          <input type="checkbox"
-                            checked={saveAddressToProfile}
+                          <input type="checkbox" checked={saveAddressToProfile}
                             onChange={e => setSaveAddressToProfile(e.target.checked)}
                             className="mt-0.5 accent-[#F4821F]" />
                           <div className="flex-1">
                             <div className="flex items-center gap-1.5">
                               <Save size={11} className="text-[#F4821F]" />
-                              <span className="text-[12px] font-bold">Bu adresi profilime kaydet</span>
+                              <span className="text-[12px] font-bold" style={{ color: 'var(--text-primary)' }}>
+                                Bu adresi profilime kaydet
+                              </span>
                             </div>
                             <p className="text-[10px] mt-0.5" style={{ color: 'var(--text-muted)' }}>
-                              Sonraki siparişlerinizde hızlı seçim için
+                              Sonraki siparişlerde hızlı seçim
                             </p>
                           </div>
                         </label>
-
                         {saveAddressToProfile && (
                           <input value={newAddressTitle}
                             onChange={e => setNewAddressTitle(e.target.value)}
                             placeholder="Adres adı: Ev / İş / Diğer..."
                             className="mt-2 w-full px-3 py-2 text-[12px] rounded-lg outline-none"
-                            style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }} />
+                            style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', color: 'var(--text-primary)' }} />
                         )}
                       </div>
                     )}
                   </>
                 )}
 
-                {/* Kayıtlı adres seçili → düzenle butonu */}
                 {hasSavedAddresses && selectedSavedAddrId && !editMode && (
                   <button type="button" onClick={() => setEditMode(true)}
                     className="text-[11px] flex items-center gap-1.5 hover:underline"
@@ -726,21 +737,23 @@ export default function SepetPage() {
                     style={{ color: 'var(--text-muted)' }}>Not (opsiyonel)</label>
                   <textarea value={orderForm.notes}
                     onChange={e => setOrderForm(f => ({ ...f, notes: e.target.value }))}
-                    rows={2}
-                    placeholder="Acele, hızlı kargo vb."
-                    className="w-full px-3.5 py-2.5 text-[13px] rounded-lg outline-none resize-none"
-                    style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)' }} />
+                    rows={2} placeholder="Acele, hızlı kargo vb."
+                    className="w-full px-3.5 py-2.5 text-[13px] rounded-xl outline-none resize-none"
+                    style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', color: 'var(--text-primary)' }} />
                 </div>
               </div>
 
-              <div className="flex gap-3 mt-5 pt-4" style={{ borderTop: '1px solid var(--border)' }}>
+              {/* Modal footer */}
+              <div className="sticky bottom-0 flex gap-3 px-5 py-4"
+                style={{ background: 'var(--bg-card)', borderTop: '1px solid var(--border)' }}>
                 <button onClick={() => setCatalogModalOpen(false)}
-                  className="px-5 py-2.5 text-[13px] rounded-lg"
+                  className="px-4 py-3 text-[13px] font-medium rounded-xl"
                   style={{ border: '1px solid var(--border)', color: 'var(--text-secondary)', background: 'var(--bg-secondary)' }}>
                   İptal
                 </button>
                 <button onClick={submitCatalogOrder} disabled={orderSubmitting}
-                  className="flex-1 flex items-center justify-center gap-2 px-5 py-2.5 text-[13px] font-bold text-white rounded-lg bg-[#F4821F] hover:bg-[#e07010] transition-colors disabled:opacity-50">
+                  className="flex-1 flex items-center justify-center gap-2 py-3 text-[13px] font-bold text-white rounded-xl disabled:opacity-50"
+                  style={{ background: 'linear-gradient(135deg, #F4821F, #e07010)' }}>
                   {orderSubmitting
                     ? <><Loader2 size={14} className="animate-spin" /> Gönderiliyor...</>
                     : <><Send size={14} /> Siparişi Gönder</>}
