@@ -38,54 +38,54 @@ const sektorler = [
     href: '/urunler?q=tabela',
   },
   {
-
-  title: 'Mağaza & Market',
-  desc: 'Sticker, kampanya ve raf etiketi ürünleri',
-  image:
-    'https://images.unsplash.com/photo-1607082349566-187342175e2f?q=80&w=1200&auto=format&fit=crop',
-  href: '/urunler?q=sticker',
+    title: 'Mağaza & Market',
+    desc: 'Sticker, kampanya ve raf etiketi ürünleri',
+    image:
+      'https://images.unsplash.com/photo-1607082349566-187342175e2f?q=80&w=1200&auto=format&fit=crop',
+    href: '/urunler?q=sticker',
   },
 ]
 
 export default function Sektorler() {
   return (
-    <section className="px-6 pb-14 max-w-7xl mx-auto">
-      <div className="mb-8">
-        <p className="text-sm font-semibold tracking-[0.18em] uppercase text-[#F4821F] mb-2">
+    <section className="mx-auto max-w-7xl px-4 pb-12 md:px-6 md:pb-14">
+      <div className="mb-6 md:mb-8">
+        <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.18em] text-[#F4821F] md:text-sm">
           Sektörel Çözümler
         </p>
 
-        <h2 className="text-3xl font-bold text-gray-900 dark:text-white">
+        <h2 className="max-w-[520px] text-[24px] font-black leading-tight text-gray-900 md:text-3xl dark:text-white">
           Sektörünüze Özel Baskı Ürünleri
         </h2>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+      <div className="-mx-4 flex snap-x snap-mandatory gap-4 overflow-x-auto px-4 pb-3 md:mx-0 md:grid md:grid-cols-3 md:gap-5 md:overflow-visible md:px-0 md:pb-0">
         {sektorler.map((s) => (
           <Link
             key={s.title}
             href={s.href}
-            className="group relative overflow-hidden rounded-3xl h-[260px]"
+            className="group relative h-[230px] min-w-[250px] snap-start overflow-hidden rounded-3xl bg-gray-200 md:h-[260px] md:min-w-0"
           >
             <Image
               src={s.image}
               alt={s.title}
               fill
-              className="object-cover group-hover:scale-105 transition-transform duration-500"
+              sizes="(max-width: 768px) 250px, 33vw"
+              className="object-cover transition-transform duration-500 group-hover:scale-105"
             />
 
-            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-black/10" />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/35 to-black/10" />
 
-            <div className="absolute bottom-0 p-6">
-              <h3 className="text-2xl font-bold text-white mb-2">
+            <div className="absolute bottom-0 left-0 right-0 p-5 md:p-6">
+              <h3 className="mb-2 text-[20px] font-black leading-tight text-white md:text-2xl">
                 {s.title}
               </h3>
 
-              <p className="text-sm text-white/80 leading-5 mb-4">
+              <p className="mb-4 text-[13px] leading-5 text-white/85 md:text-sm">
                 {s.desc}
               </p>
 
-              <span className="inline-flex items-center text-sm font-semibold text-white">
+              <span className="inline-flex items-center text-[13px] font-bold text-white md:text-sm">
                 Ürünleri İncele →
               </span>
             </div>

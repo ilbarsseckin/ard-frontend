@@ -81,7 +81,6 @@ export default function Home() {
         <HesaplamaSection />
         <NedenBiz />
         <ReviewsSection />
-        <CtaSection />
       </main>
       <Footer />
     </>

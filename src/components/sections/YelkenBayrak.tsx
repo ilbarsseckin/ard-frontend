@@ -1,10 +1,9 @@
 'use client'
+
 import Link from 'next/link'
 import { ArrowRight } from 'lucide-react'
 import { useEffect, useRef } from 'react'
 
-/* ─── Yelken Bayrak — SVG dalgalanma ─── */
-/* ─── Yelken Bayrak — SVG dalgalanma ─── */
 function YelkenSVG() {
   const turbRef = useRef<SVGFETurbulenceElement>(null)
 
@@ -28,18 +27,8 @@ function YelkenSVG() {
   }, [])
 
   return (
-    <div
-      className="absolute z-10"
-      style={{
-        bottom: '-30px',
-        left: '50%',
-        transform: 'translateX(-50%) rotate(-1.5deg)',
-        width: '150px',
-        height: '340px',
-        filter: 'drop-shadow(0 16px 26px rgba(0,0,0,0.2))',
-      }}
-    >
-      <svg viewBox="0 0 210 470" xmlns="http://www.w3.org/2000/svg" width="150" height="340">
+    <div className="absolute bottom-[-12px] left-1/2 z-10 h-[220px] w-[95px] -translate-x-1/2 rotate-[-1.5deg] drop-shadow-[0_12px_18px_rgba(0,0,0,0.22)] md:bottom-[-30px] md:h-[340px] md:w-[150px]">
+      <svg viewBox="0 0 210 470" xmlns="http://www.w3.org/2000/svg" width="100%" height="100%">
         <defs>
           <linearGradient id="pole-y" x1="0" x2="1" y1="0" y2="0">
             <stop offset="0%" stopColor="#777" />
@@ -88,38 +77,20 @@ function YelkenSVG() {
             strokeWidth="0.7"
           />
 
-          <path
-            d="M31 42 C43 48 51 58 53 72 L53 398 C47 407 39 414 31 418 Z"
-            fill="#000"
-            opacity="0.045"
-          />
+          <path d="M31 42 C43 48 51 58 53 72 L53 398 C47 407 39 414 31 418 Z" fill="#000" opacity="0.045" />
 
-          <path
-            d="M78 38 C100 145 96 310 78 424"
-            stroke="#000"
-            strokeWidth="16"
-            opacity="0.035"
-            fill="none"
-          />
+          <path d="M78 38 C100 145 96 310 78 424" stroke="#000" strokeWidth="16" opacity="0.035" fill="none" />
 
-          <path
-            d="M139 42 C122 150 128 310 145 420"
-            stroke="#000"
-            strokeWidth="12"
-            opacity="0.026"
-            fill="none"
-          />
+          <path d="M139 42 C122 150 128 310 145 420" stroke="#000" strokeWidth="12" opacity="0.026" fill="none" />
 
           <rect x="66" y="50" width="22" height="360" fill="url(#shine-y)" opacity="0.35" />
 
           <path d="M43 88 C92 76 139 78 173 90" fill="none" stroke="#F4821F" strokeWidth="5" strokeLinecap="round" />
           <path d="M45 101 C93 91 137 91 170 102" fill="none" stroke="#F4821F" strokeWidth="1.4" opacity="0.5" strokeLinecap="round" />
-
           <path d="M41 371 C90 383 133 385 156 374" fill="none" stroke="#F4821F" strokeWidth="5" strokeLinecap="round" />
           <path d="M43 360 C91 372 132 373 154 363" fill="none" stroke="#F4821F" strokeWidth="1.4" opacity="0.5" strokeLinecap="round" />
         </g>
 
-        {/* Net okunabilir logo - filtre dışında */}
         <g>
           <text
             x="101"
@@ -175,33 +146,24 @@ function YelkenSVG() {
   )
 }
 
-/* ─── Gönder Bayrağı — GIF ─── */
 function GonderGorsel() {
   return (
-    <div className="absolute z-10" style={{
-      bottom: '-24px', left: '50%', transform: 'translateX(-50%)',
-      width: '180px', height: '280px',
-      filter: 'drop-shadow(0 12px 20px rgba(0,0,0,0.2))',
-    }}>
+    <div className="absolute bottom-[-10px] left-1/2 z-10 h-[180px] w-[110px] -translate-x-1/2 drop-shadow-[0_12px_18px_rgba(0,0,0,0.22)] md:bottom-[-24px] md:h-[280px] md:w-[180px]">
       <img
         src="/images/yelken-bayrak.gif"
         alt="Gönder Bayrağı"
-        style={{
-          position: 'absolute',
-          top: '0', left: '22px',
-          width: '158px', height: '240px',
-          objectFit: 'cover',
-          borderRadius: '6px',
-          boxShadow: '0 6px 18px rgba(0,0,0,0.15)',
-        }}
+        className="absolute left-[14px] top-0 h-[150px] w-[95px] rounded-md object-cover shadow-[0_6px_18px_rgba(0,0,0,0.15)] md:left-[22px] md:h-[240px] md:w-[158px]"
       />
-      <svg viewBox="0 0 180 280" xmlns="http://www.w3.org/2000/svg" width="180" height="280"
-        style={{ position: 'absolute', top: 0, left: 0, pointerEvents: 'none' }}>
+
+      <svg viewBox="0 0 180 280" xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" className="pointer-events-none absolute inset-0">
         <defs>
           <linearGradient id="pg-g" x1="0" x2="1" y1="0" y2="0">
-            <stop offset="0%" stopColor="#999" /><stop offset="40%" stopColor="#eee" /><stop offset="100%" stopColor="#777" />
+            <stop offset="0%" stopColor="#999" />
+            <stop offset="40%" stopColor="#eee" />
+            <stop offset="100%" stopColor="#777" />
           </linearGradient>
         </defs>
+
         <rect x="10" y="0" width="8" height="278" rx="4" fill="url(#pg-g)" />
         <circle cx="14" cy="5" r="5" fill="#d0d0d0" />
         <ellipse cx="14" cy="274" rx="9" ry="4.5" fill="#aaa" opacity="0.5" />
@@ -210,7 +172,6 @@ function GonderGorsel() {
   )
 }
 
-/* ─── Kart ─── */
 interface KartProps {
   href: string
   baslik: string
@@ -222,51 +183,50 @@ function BayrakKart({ href, baslik, aciklama, gorsel }: KartProps) {
   return (
     <Link
       href={href}
-      className="group flex flex-col sm:grid sm:grid-cols-[1.1fr_0.9fr] rounded-3xl relative transition-all duration-300 hover:-translate-y-1"
+      className="group relative flex flex-col overflow-hidden rounded-[22px] transition-all duration-300 hover:-translate-y-1 md:rounded-3xl"
       style={{
         background: 'var(--bg-card)',
-        border: '0.5px solid var(--border)',
-        overflow: 'visible',
+        border: '1px solid var(--border)',
         boxShadow: '0 2px 20px rgba(0,0,0,0.06)',
       }}
     >
-      {/* Görsel alanı */}
       <div
-        className="relative min-h-[240px] sm:min-h-[340px]"
+        className="relative min-h-[170px] md:min-h-[340px]"
         style={{
           background: 'var(--bg-secondary)',
-          borderRadius: '24px 24px 0 0',
         }}
       >
-        {/* sm'de sol-alt köşe yuvarlaması */}
-        <div className="hidden sm:block absolute inset-0"
-          style={{ borderRadius: '24px 0 0 24px', background: 'var(--bg-secondary)' }} />
         {gorsel}
       </div>
 
-      {/* İçerik */}
-      <div
-        className="flex flex-col justify-center p-5 sm:p-6 md:p-8 relative z-10"
-        style={{ borderRadius: '0 0 24px 24px' }}
-      >
-        <p className="text-[10px] sm:text-[11px] font-black uppercase tracking-[2px] text-[#F4821F] mb-2">
+      <div className="relative z-10 flex flex-col justify-center p-3 md:p-8">
+        <p className="mb-1 text-[9px] font-black uppercase tracking-[1.5px] text-[#F4821F] md:mb-2 md:text-[11px] md:tracking-[2px]">
           Outdoor Reklam
         </p>
+
         <h2
-          className="text-[20px] sm:text-[24px] md:text-[30px] font-black leading-tight tracking-[-1px] mb-2"
+          className="mb-1 text-[15px] font-black leading-tight tracking-[-0.5px] md:mb-2 md:text-[30px] md:tracking-[-1px]"
           style={{ color: 'var(--text-primary)' }}
         >
           {baslik}
         </h2>
-        <p className="text-[12px] leading-6 mb-4" style={{ color: 'var(--text-secondary)' }}>
+
+        <p
+          className="mb-3 text-[10px] leading-5 md:mb-4 md:text-[12px] md:leading-6"
+          style={{ color: 'var(--text-secondary)' }}
+        >
           {aciklama}
         </p>
-        <div className="flex items-baseline gap-2 mb-4">
-          <span className="text-[22px] sm:text-[26px] font-black text-[#F4821F]">₺990</span>
-          <span className="text-[11px]" style={{ color: 'var(--text-muted)' }}>başlayan fiyatlarla</span>
+
+        <div className="mb-3 flex flex-wrap items-baseline gap-x-2 gap-y-1 md:mb-4">
+          <span className="text-[17px] font-black text-[#F4821F] md:text-[26px]">₺990</span>
+          <span className="text-[9px] md:text-[11px]" style={{ color: 'var(--text-muted)' }}>
+            başlayan fiyatlarla
+          </span>
         </div>
-        <div className="inline-flex w-fit items-center gap-2 rounded-full bg-[#F4821F] px-4 py-2 text-[12px] font-bold text-white group-hover:bg-[#e07010] transition-colors">
-          Ürünü incele <ArrowRight size={12} />
+
+        <div className="inline-flex w-fit items-center gap-1.5 rounded-full bg-[#F4821F] px-3 py-2 text-[10px] font-bold text-white transition-colors group-hover:bg-[#e07010] md:gap-2 md:px-4 md:text-[12px]">
+          Ürünü incele <ArrowRight size={11} />
         </div>
       </div>
     </Link>
@@ -275,18 +235,19 @@ function BayrakKart({ href, baslik, aciklama, gorsel }: KartProps) {
 
 export default function YelkenBayrakSection() {
   return (
-    <section className="py-10 md:py-16 px-4 md:px-6">
-      <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-6">
+    <section className="px-3 py-8 md:px-6 md:py-16">
+      <div className="mx-auto grid max-w-7xl grid-cols-2 gap-3 md:gap-6">
         <BayrakKart
           href="/urun/yelken-bayrak-urun"
           baslik="Yelken Bayrak"
-          aciklama="Etkinlik, mağaza önü ve kampanyalar için dikkat çekici, taşınabilir ve şık yelken bayrak çözümleri."
+          aciklama="Etkinlik ve mağaza önü için dikkat çekici bayrak çözümleri."
           gorsel={<YelkenSVG />}
         />
+
         <BayrakKart
           href="/urun/gonder-bayragi"
           baslik="Gönder Bayrağı"
-          aciklama="Kurumsal, resmi ve dekoratif kullanımlar için yüksek kaliteli, dayanıklı gönder bayrağı çözümleri."
+          aciklama="Kurumsal ve resmi alanlar için kaliteli gönder bayrakları."
           gorsel={<GonderGorsel />}
         />
       </div>
