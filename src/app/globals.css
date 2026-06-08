@@ -123,3 +123,10 @@ body {
   75%  { transform: translateX(-50%) rotate(-0.5deg) skewX(-0.3deg); }
   100% { transform: translateX(-50%) rotate(-1.5deg) skewX(0.5deg); }
 }
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
