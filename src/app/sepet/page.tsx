@@ -9,6 +9,7 @@ import toast from 'react-hot-toast'
 import {
   Trash2, ShoppingCart, MapPin, Plus, AlertTriangle, Loader2, RefreshCw,
   Package, X, Send, Check, Palette, Mail, KeyRound, UserCircle, Edit3, Save,
+  Building2, Receipt, FileText,
 } from 'lucide-react'
 
 interface Address {
@@ -22,6 +23,11 @@ interface AuthUser {
 const EMPTY_FORM = {
   customerName: '', customerPhone: '', customerEmail: '',
   customerAddress: '', city: '', district: '', notes: '',
+}
+
+const EMPTY_BILLING = {
+  companyName: '', taxNumber: '', taxOffice: '',
+  billingAddress: '', billingCity: '', billingDistrict: '',
 }
 
 function getAuthUser(): AuthUser | null {
@@ -57,6 +63,14 @@ export default function SepetPage() {
   const [editMode, setEditMode] = useState(false)
   const [saveAddressToProfile, setSaveAddressToProfile] = useState(true)
   const [newAddressTitle, setNewAddressTitle] = useState('')
+
+  // Fatura adresi
+  const [sameBillingAddress, setSameBillingAddress] = useState(true)
+  const [corporateInvoice, setCorporateInvoice] = useState(false)
+  const [billingForm, setBillingForm] = useState(EMPTY_BILLING)
+
+  // Şartlar
+  const [termsAccepted, setTermsAccepted] = useState(false)
 
   const hasSavedAddresses = isLoggedIn && addresses.length > 0
   const showFullAddressForm = !hasSavedAddresses || editMode
@@ -151,6 +165,17 @@ export default function SepetPage() {
       if (!orderForm.customerEmail.trim()) { toast.error('Email zorunlu'); return }
       if (!isValidEmail(orderForm.customerEmail)) { toast.error('Geçerli email girin'); return }
     }
+    if (!sameBillingAddress && !billingForm.billingAddress.trim()) {
+      toast.error('Fatura adresi zorunlu'); return
+    }
+    if (corporateInvoice) {
+      if (!billingForm.companyName.trim()) { toast.error('Firma adı zorunlu'); return }
+      if (!billingForm.taxNumber.trim()) { toast.error('Vergi numarası zorunlu'); return }
+      if (!billingForm.taxOffice.trim()) { toast.error('Vergi dairesi zorunlu'); return }
+    }
+    if (!termsAccepted) {
+      toast.error('Lütfen satış koşullarını ve iade şartlarını kabul edin'); return
+    }
     if (catalogItems.length === 0) { toast.error('Sepet boş'); return }
 
     setOrderSubmitting(true)
@@ -163,7 +188,22 @@ export default function SepetPage() {
         designSupport: it.designSupport,
       }))
 
-      const res = await api.post('/api/catalog/orders', { ...orderForm, items: orderItems })
+      const res = await api.post('/api/catalog/orders', {
+        ...orderForm,
+        items: orderItems,
+        sameBillingAddress,
+        corporateInvoice,
+        ...(corporateInvoice ? {
+          invoiceCompanyName: billingForm.companyName,
+          invoiceTaxNumber: billingForm.taxNumber,
+          invoiceTaxOffice: billingForm.taxOffice,
+        } : {}),
+        ...(!sameBillingAddress ? {
+          billingAddress: billingForm.billingAddress,
+          billingCity: billingForm.billingCity,
+          billingDistrict: billingForm.billingDistrict,
+        } : {}),
+      })
       const data = res.data.data
 
       if (isLoggedIn && showFullAddressForm && saveAddressToProfile && orderForm.customerAddress.trim()) {
@@ -187,6 +227,10 @@ export default function SepetPage() {
       clearCatalog()
       setCatalogModalOpen(false)
       setOrderForm(EMPTY_FORM)
+      setBillingForm(EMPTY_BILLING)
+      setSameBillingAddress(true)
+      setCorporateInvoice(false)
+      setTermsAccepted(false)
       setSelectedSavedAddrId('')
       setEditMode(false)
       router.push(`/odeme-katalog?siparisNo=${data.orderNumber}`)
@@ -237,33 +281,24 @@ export default function SepetPage() {
       <main className="min-h-screen pb-24" style={{ background: 'var(--bg-secondary)' }}>
         <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6 sm:py-10">
 
-          {/* Başlık */}
           <div className="flex items-center justify-between mb-6">
-            <h1 className="text-[20px] sm:text-[24px] font-black tracking-[-0.5px]"
-              style={{ color: 'var(--text-primary)' }}>
+            <h1 className="text-[20px] sm:text-[24px] font-black tracking-[-0.5px]" style={{ color: 'var(--text-primary)' }}>
               Sepetim
-              <span className="ml-2 text-[13px] font-medium" style={{ color: 'var(--text-muted)' }}>
-                ({totalCount} ürün)
-              </span>
+              <span className="ml-2 text-[13px] font-medium" style={{ color: 'var(--text-muted)' }}>({totalCount} ürün)</span>
             </h1>
             <button onClick={() => { syncFromBackend(); toast.success('Sepet güncellendi') }}
-              className="flex items-center gap-1.5 text-[12px] transition-colors"
-              style={{ color: 'var(--text-muted)' }}>
+              className="flex items-center gap-1.5 text-[12px]" style={{ color: 'var(--text-muted)' }}>
               <RefreshCw size={13} /> Yenile
             </button>
           </div>
 
-          {/* LAYOUT — mobilde tek kolon, masaüstünde 2/3 + 1/3 */}
           <div className="flex flex-col lg:grid lg:grid-cols-3 gap-6">
 
             {/* Sol — ürünler */}
             <div className="lg:col-span-2 space-y-6 order-2 lg:order-1">
-
-              {/* Statik ürünler */}
               {items.length > 0 && (
                 <section>
-                  <p className="text-[11px] font-bold uppercase tracking-[1.5px] mb-3"
-                    style={{ color: 'var(--text-muted)' }}>
+                  <p className="text-[11px] font-bold uppercase tracking-[1.5px] mb-3" style={{ color: 'var(--text-muted)' }}>
                     Sipariş Ürünleri ({items.length})
                   </p>
                   <div className="space-y-3">
@@ -273,24 +308,17 @@ export default function SepetPage() {
                         style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
                         <div className="flex justify-between items-start gap-3">
                           <div className="flex-1 min-w-0">
-                            <p className="text-[14px] font-bold truncate" style={{ color: 'var(--text-primary)' }}>
-                              {item.productName}
-                            </p>
-                            <p className="text-[12px] mt-0.5" style={{ color: 'var(--text-muted)' }}>
-                              {item.priceBreakdown}
-                            </p>
+                            <p className="text-[14px] font-bold truncate" style={{ color: 'var(--text-primary)' }}>{item.productName}</p>
+                            <p className="text-[12px] mt-0.5" style={{ color: 'var(--text-muted)' }}>{item.priceBreakdown}</p>
                           </div>
                           <div className="flex items-center gap-2 flex-shrink-0">
                             <p className="text-[16px] font-black text-[#F4821F]">
                               ₺{item.totalPrice.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}
                             </p>
-                            <button onClick={() => handleRemoveStatic(item.id)}
-                              disabled={removingId === item.id}
-                              className="w-8 h-8 rounded-lg flex items-center justify-center transition-colors hover:text-red-500 disabled:opacity-40"
+                            <button onClick={() => handleRemoveStatic(item.id)} disabled={removingId === item.id}
+                              className="w-8 h-8 rounded-lg flex items-center justify-center hover:text-red-500 disabled:opacity-40"
                               style={{ border: '1px solid var(--border)', color: 'var(--text-muted)' }}>
-                              {removingId === item.id
-                                ? <Loader2 size={13} className="animate-spin" />
-                                : <Trash2 size={13} />}
+                              {removingId === item.id ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
                             </button>
                           </div>
                         </div>
@@ -300,11 +328,9 @@ export default function SepetPage() {
                 </section>
               )}
 
-              {/* Katalog ürünleri */}
               {catalogItems.length > 0 && (
                 <section>
-                  <p className="text-[11px] font-bold uppercase tracking-[1.5px] mb-3"
-                    style={{ color: 'var(--text-muted)' }}>
+                  <p className="text-[11px] font-bold uppercase tracking-[1.5px] mb-3" style={{ color: 'var(--text-muted)' }}>
                     Katalog Ürünleri ({catalogItems.length})
                   </p>
                   <div className="space-y-3">
@@ -317,46 +343,34 @@ export default function SepetPage() {
                         <div key={item.id} className="rounded-2xl p-4"
                           style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
                           <div className="flex gap-3">
-                            {/* Görsel */}
                             <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-xl overflow-hidden flex-shrink-0"
                               style={{ background: 'var(--bg-secondary)' }}>
                               {item.mainImageUrl
                                 ? <img src={item.mainImageUrl} alt={item.productName} className="w-full h-full object-cover" />
-                                : <div className="w-full h-full flex items-center justify-center">
-                                    <Package size={20} style={{ color: 'var(--text-muted)' }} />
-                                  </div>}
+                                : <div className="w-full h-full flex items-center justify-center"><Package size={20} style={{ color: 'var(--text-muted)' }} /></div>}
                             </div>
-
-                            {/* İçerik */}
                             <div className="flex-1 min-w-0">
                               <div className="flex items-start justify-between gap-2">
-                                <p className="text-[13px] sm:text-[14px] font-bold leading-tight"
-                                  style={{ color: 'var(--text-primary)' }}>
-                                  {item.productName}
-                                </p>
+                                <p className="text-[13px] sm:text-[14px] font-bold" style={{ color: 'var(--text-primary)' }}>{item.productName}</p>
                                 <button onClick={() => handleRemoveCatalog(item.id)}
-                                  className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 hover:text-red-500 transition-colors"
+                                  className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 hover:text-red-500"
                                   style={{ border: '1px solid var(--border)', color: 'var(--text-muted)' }}>
                                   <Trash2 size={12} />
                                 </button>
                               </div>
-
                               <p className="text-[11px] mt-0.5" style={{ color: 'var(--text-muted)' }}>
                                 {item.categoryName} · {item.tierQty.toLocaleString('tr-TR')} adet
                               </p>
-
                               {item.attributes.length > 0 && (
                                 <div className="flex flex-wrap gap-1 mt-1.5">
                                   {item.attributes.map(a => (
-                                    <span key={a.attributeId}
-                                      className="text-[10px] font-medium px-1.5 py-0.5 rounded-md"
+                                    <span key={a.attributeId} className="text-[10px] font-medium px-1.5 py-0.5 rounded-md"
                                       style={{ background: 'rgba(244,130,31,0.1)', color: '#F4821F' }}>
                                       {a.label}: {a.optionValue}
                                     </span>
                                   ))}
                                 </div>
                               )}
-
                               <div className="flex items-center justify-between mt-2">
                                 <div className="flex items-center gap-2 flex-wrap">
                                   {fileCount > 0 && (
@@ -383,9 +397,8 @@ export default function SepetPage() {
                                   ₺{Number(item.priceTl).toLocaleString('tr-TR', { maximumFractionDigits: 0 })}
                                 </p>
                               </div>
-
                               {hasSupport && notesExpanded && (
-                                <div className="mt-2 p-2.5 rounded-lg text-[11px] leading-relaxed"
+                                <div className="mt-2 p-2.5 rounded-lg text-[11px]"
                                   style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)' }}>
                                   {item.designSupport?.notes || '(not yok)'}
                                 </div>
@@ -400,13 +413,10 @@ export default function SepetPage() {
               )}
             </div>
 
-            {/* Sağ — özet + ödeme */}
+            {/* Sağ — özet */}
             <div className="order-1 lg:order-2 space-y-3">
-
-              {/* Teslimat adresi — sadece statik ürünler için */}
               {items.length > 0 && (
-                <div className="rounded-2xl p-4"
-                  style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
+                <div className="rounded-2xl p-4" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
                   <div className="flex items-center gap-2 mb-3">
                     <MapPin size={14} style={{ color: '#F4821F' }} />
                     <p className="text-[13px] font-bold" style={{ color: 'var(--text-primary)' }}>Teslimat Adresi</p>
@@ -414,15 +424,13 @@ export default function SepetPage() {
                   {addresses.length > 0 ? (
                     <div className="space-y-2">
                       {addresses.map(a => (
-                        <label key={a.id}
-                          className="flex items-start gap-2.5 p-2.5 rounded-xl cursor-pointer transition-all"
+                        <label key={a.id} className="flex items-start gap-2.5 p-2.5 rounded-xl cursor-pointer"
                           style={{
                             border: selectedAddr === a.id ? '1.5px solid #F4821F' : '1px solid var(--border)',
                             background: selectedAddr === a.id ? 'rgba(244,130,31,0.05)' : 'var(--bg-secondary)',
                           }}>
                           <input type="radio" name="addr-static" value={a.id}
-                            checked={selectedAddr === a.id}
-                            onChange={() => setSelectedAddr(a.id)}
+                            checked={selectedAddr === a.id} onChange={() => setSelectedAddr(a.id)}
                             className="mt-0.5 accent-[#F4821F]" />
                           <div>
                             <p className="text-[12px] font-bold" style={{ color: 'var(--text-primary)' }}>{a.title}</p>
@@ -434,16 +442,12 @@ export default function SepetPage() {
                       ))}
                     </div>
                   ) : (
-                    <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>
-                      Henüz kayıtlı adres yok.
-                    </p>
+                    <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>Henüz kayıtlı adres yok.</p>
                   )}
                 </div>
               )}
 
-              {/* Sipariş özeti */}
-              <div className="rounded-2xl p-4"
-                style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
+              <div className="rounded-2xl p-4" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
                 <p className="text-[12px] font-bold mb-3" style={{ color: 'var(--text-primary)' }}>Sipariş Özeti</p>
                 <div className="space-y-1.5 mb-3">
                   {items.map(item => (
@@ -454,10 +458,7 @@ export default function SepetPage() {
                   ))}
                   {catalogItems.map(item => (
                     <div key={item.id} className="flex justify-between text-[12px]" style={{ color: 'var(--text-muted)' }}>
-                      <span className="truncate mr-2 max-w-[140px]">
-                        {item.productName}
-                        <span className="text-[10px] ml-1">×{item.tierQty}</span>
-                      </span>
+                      <span className="truncate mr-2 max-w-[140px]">{item.productName} <span className="text-[10px]">×{item.tierQty}</span></span>
                       <span>₺{Number(item.priceTl).toLocaleString('tr-TR', { maximumFractionDigits: 0 })}</span>
                     </div>
                   ))}
@@ -466,8 +467,7 @@ export default function SepetPage() {
                   <span>Kargo</span>
                   <span className="text-green-600 font-bold">Ücretsiz</span>
                 </div>
-                <div className="flex justify-between items-center pt-3"
-                  style={{ borderTop: '1px solid var(--border)' }}>
+                <div className="flex justify-between items-center pt-3" style={{ borderTop: '1px solid var(--border)' }}>
                   <div>
                     <p className="text-[13px] font-bold" style={{ color: 'var(--text-primary)' }}>Toplam</p>
                     <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>KDV Dahil</p>
@@ -478,26 +478,21 @@ export default function SepetPage() {
                 </div>
               </div>
 
-              {/* Butonlar */}
               {catalogItems.length > 0 && (
                 <button onClick={() => setCatalogModalOpen(true)}
-                  className="w-full flex items-center justify-center gap-2 py-3.5 text-[14px] font-bold text-white rounded-2xl transition-all hover:opacity-90"
+                  className="w-full flex items-center justify-center gap-2 py-3.5 text-[14px] font-bold text-white rounded-2xl hover:opacity-90"
                   style={{ background: 'linear-gradient(135deg, #F4821F, #e07010)', boxShadow: '0 6px 14px rgba(244,130,31,0.3)' }}>
                   <Send size={15} />
                   Siparişi Tamamla
-                  <span className="text-[12px] opacity-80">
-                    (₺{catalogTotalTl.toLocaleString('tr-TR', { maximumFractionDigits: 0 })})
-                  </span>
+                  <span className="text-[12px] opacity-80">(₺{catalogTotalTl.toLocaleString('tr-TR', { maximumFractionDigits: 0 })})</span>
                 </button>
               )}
 
               {items.length > 0 && (
                 <button onClick={checkout} disabled={checkoutLoading || !selectedAddr}
-                  className="w-full flex items-center justify-center gap-2 py-3 text-[13px] font-bold text-white rounded-2xl transition-all disabled:opacity-50"
+                  className="w-full flex items-center justify-center gap-2 py-3 text-[13px] font-bold text-white rounded-2xl disabled:opacity-50"
                   style={{ background: '#1a1a1a' }}>
-                  {checkoutLoading
-                    ? <><Loader2 size={15} className="animate-spin" /> İşleniyor...</>
-                    : 'Ödemeye Geç →'}
+                  {checkoutLoading ? <><Loader2 size={15} className="animate-spin" /> İşleniyor...</> : 'Ödemeye Geç →'}
                 </button>
               )}
             </div>
@@ -513,12 +508,10 @@ export default function SepetPage() {
               className="w-full sm:max-w-lg rounded-t-3xl sm:rounded-2xl max-h-[92vh] overflow-y-auto"
               style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
 
-              {/* Modal başlık */}
+              {/* Başlık */}
               <div className="sticky top-0 flex items-center justify-between px-5 py-4 z-10"
                 style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border)' }}>
-                <h3 className="text-[16px] font-bold" style={{ color: 'var(--text-primary)' }}>
-                  Sipariş Bilgileri
-                </h3>
+                <h3 className="text-[16px] font-bold" style={{ color: 'var(--text-primary)' }}>Sipariş Bilgileri</h3>
                 <button onClick={() => setCatalogModalOpen(false)}
                   className="w-8 h-8 rounded-full flex items-center justify-center"
                   style={{ border: '1px solid var(--border)', color: 'var(--text-muted)' }}>
@@ -545,13 +538,13 @@ export default function SepetPage() {
                       <KeyRound size={14} className="text-[#F4821F] mt-0.5 flex-shrink-0" />
                       <div>
                         <p className="text-[12px] font-bold">Üye olmadan sipariş veriyorsunuz</p>
-                        <p className="text-[11px] mt-0.5 leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
+                        <p className="text-[11px] mt-0.5" style={{ color: 'var(--text-secondary)' }}>
                           Sipariş sonrası emailinize giriş şifreniz gönderilir.
                         </p>
                       </div>
                     </div>
                     <button onClick={() => router.push(`/giris?next=${encodeURIComponent('/sepet')}`)}
-                      className="mt-2 w-full text-[11px] font-bold py-1.5 rounded-lg hover:opacity-80 transition-colors"
+                      className="mt-2 w-full text-[11px] font-bold py-1.5 rounded-lg hover:opacity-80"
                       style={{ color: '#F4821F' }}>
                       Hesabınız var mı? Giriş yap →
                     </button>
@@ -561,9 +554,7 @@ export default function SepetPage() {
                 {/* Özet */}
                 <div className="flex items-center justify-between px-4 py-3 rounded-xl"
                   style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)' }}>
-                  <p className="text-[12px]" style={{ color: 'var(--text-muted)' }}>
-                    {catalogItems.length} ürün · KDV Dahil
-                  </p>
+                  <p className="text-[12px]" style={{ color: 'var(--text-muted)' }}>{catalogItems.length} ürün · KDV Dahil</p>
                   <p className="text-[20px] font-black text-[#F4821F]">
                     ₺{catalogTotalTl.toLocaleString('tr-TR', { maximumFractionDigits: 0 })}
                   </p>
@@ -578,8 +569,7 @@ export default function SepetPage() {
                     </label>
                     <div className="space-y-2">
                       {addresses.map(a => (
-                        <label key={a.id}
-                          className="flex items-start gap-2.5 p-3 rounded-xl cursor-pointer transition-all"
+                        <label key={a.id} className="flex items-start gap-2.5 p-3 rounded-xl cursor-pointer"
                           style={{
                             background: selectedSavedAddrId === a.id ? 'rgba(244,130,31,0.08)' : 'var(--bg-secondary)',
                             border: selectedSavedAddrId === a.id ? '1.5px solid #F4821F' : '1px solid var(--border)',
@@ -593,9 +583,7 @@ export default function SepetPage() {
                               <p className="text-[12px] font-bold" style={{ color: 'var(--text-primary)' }}>{a.title}</p>
                               {a.isDefault && (
                                 <span className="text-[9px] px-1.5 py-0.5 rounded font-bold"
-                                  style={{ background: 'rgba(244,130,31,0.15)', color: '#F4821F' }}>
-                                  Varsayılan
-                                </span>
+                                  style={{ background: 'rgba(244,130,31,0.15)', color: '#F4821F' }}>Varsayılan</span>
                               )}
                             </div>
                             <p className="text-[11px] mt-0.5" style={{ color: 'var(--text-muted)' }}>
@@ -605,7 +593,7 @@ export default function SepetPage() {
                         </label>
                       ))}
                       <button type="button" onClick={handleNewAddress}
-                        className="w-full flex items-center justify-center gap-1.5 py-2 text-[11px] font-bold rounded-xl transition-all"
+                        className="w-full flex items-center justify-center gap-1.5 py-2 text-[11px] font-bold rounded-xl"
                         style={{
                           border: editMode ? '1.5px solid #F4821F' : '1px dashed var(--border)',
                           color: editMode ? '#F4821F' : 'var(--text-muted)',
@@ -617,11 +605,10 @@ export default function SepetPage() {
                   </div>
                 )}
 
-                {/* Form alanları */}
+                {/* Ad soyad */}
                 {(!isLoggedIn || showFullAddressForm) && (
                   <div>
-                    <label className="block text-[11px] font-bold uppercase tracking-[1px] mb-1.5"
-                      style={{ color: 'var(--text-muted)' }}>
+                    <label className="block text-[11px] font-bold uppercase tracking-[1px] mb-1.5" style={{ color: 'var(--text-muted)' }}>
                       Ad Soyad <span style={{ color: '#EF4444' }}>*</span>
                     </label>
                     <input value={orderForm.customerName}
@@ -634,8 +621,7 @@ export default function SepetPage() {
 
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-[11px] font-bold uppercase tracking-[1px] mb-1.5"
-                      style={{ color: 'var(--text-muted)' }}>
+                    <label className="block text-[11px] font-bold uppercase tracking-[1px] mb-1.5" style={{ color: 'var(--text-muted)' }}>
                       Telefon <span style={{ color: '#EF4444' }}>*</span>
                     </label>
                     <input value={orderForm.customerPhone}
@@ -646,8 +632,7 @@ export default function SepetPage() {
                   </div>
                   {!isLoggedIn && (
                     <div>
-                      <label className="block text-[11px] font-bold uppercase tracking-[1px] mb-1.5 flex items-center gap-1"
-                        style={{ color: 'var(--text-muted)' }}>
+                      <label className="block text-[11px] font-bold uppercase tracking-[1px] mb-1.5 flex items-center gap-1" style={{ color: 'var(--text-muted)' }}>
                         <Mail size={10} /> Email <span style={{ color: '#EF4444' }}>*</span>
                       </label>
                       <input value={orderForm.customerEmail}
@@ -662,9 +647,8 @@ export default function SepetPage() {
                 {showFullAddressForm && (
                   <>
                     <div>
-                      <label className="block text-[11px] font-bold uppercase tracking-[1px] mb-1.5"
-                        style={{ color: 'var(--text-muted)' }}>
-                        Adres <span style={{ color: '#EF4444' }}>*</span>
+                      <label className="block text-[11px] font-bold uppercase tracking-[1px] mb-1.5" style={{ color: 'var(--text-muted)' }}>
+                        Teslimat Adresi <span style={{ color: '#EF4444' }}>*</span>
                       </label>
                       <textarea value={orderForm.customerAddress}
                         onChange={e => setOrderForm(f => ({ ...f, customerAddress: e.target.value }))}
@@ -674,47 +658,33 @@ export default function SepetPage() {
                     </div>
                     <div className="grid grid-cols-2 gap-3">
                       <div>
-                        <label className="block text-[11px] font-bold uppercase tracking-[1px] mb-1.5"
-                          style={{ color: 'var(--text-muted)' }}>Şehir</label>
-                        <input value={orderForm.city}
-                          onChange={e => setOrderForm(f => ({ ...f, city: e.target.value }))}
-                          placeholder="Gaziantep"
-                          className="w-full px-3.5 py-2.5 text-[13px] rounded-xl outline-none"
+                        <label className="block text-[11px] font-bold uppercase tracking-[1px] mb-1.5" style={{ color: 'var(--text-muted)' }}>Şehir</label>
+                        <input value={orderForm.city} onChange={e => setOrderForm(f => ({ ...f, city: e.target.value }))}
+                          placeholder="Gaziantep" className="w-full px-3.5 py-2.5 text-[13px] rounded-xl outline-none"
                           style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', color: 'var(--text-primary)' }} />
                       </div>
                       <div>
-                        <label className="block text-[11px] font-bold uppercase tracking-[1px] mb-1.5"
-                          style={{ color: 'var(--text-muted)' }}>İlçe</label>
-                        <input value={orderForm.district}
-                          onChange={e => setOrderForm(f => ({ ...f, district: e.target.value }))}
-                          placeholder="Şehitkamil"
-                          className="w-full px-3.5 py-2.5 text-[13px] rounded-xl outline-none"
+                        <label className="block text-[11px] font-bold uppercase tracking-[1px] mb-1.5" style={{ color: 'var(--text-muted)' }}>İlçe</label>
+                        <input value={orderForm.district} onChange={e => setOrderForm(f => ({ ...f, district: e.target.value }))}
+                          placeholder="Şehitkamil" className="w-full px-3.5 py-2.5 text-[13px] rounded-xl outline-none"
                           style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', color: 'var(--text-primary)' }} />
                       </div>
                     </div>
 
                     {isLoggedIn && (
-                      <div className="rounded-xl p-3"
-                        style={{ background: 'rgba(244,130,31,0.04)', border: '1px solid rgba(244,130,31,0.2)' }}>
+                      <div className="rounded-xl p-3" style={{ background: 'rgba(244,130,31,0.04)', border: '1px solid rgba(244,130,31,0.2)' }}>
                         <label className="flex items-start gap-2 cursor-pointer">
                           <input type="checkbox" checked={saveAddressToProfile}
-                            onChange={e => setSaveAddressToProfile(e.target.checked)}
-                            className="mt-0.5 accent-[#F4821F]" />
+                            onChange={e => setSaveAddressToProfile(e.target.checked)} className="mt-0.5 accent-[#F4821F]" />
                           <div className="flex-1">
                             <div className="flex items-center gap-1.5">
                               <Save size={11} className="text-[#F4821F]" />
-                              <span className="text-[12px] font-bold" style={{ color: 'var(--text-primary)' }}>
-                                Bu adresi profilime kaydet
-                              </span>
+                              <span className="text-[12px] font-bold" style={{ color: 'var(--text-primary)' }}>Bu adresi profilime kaydet</span>
                             </div>
-                            <p className="text-[10px] mt-0.5" style={{ color: 'var(--text-muted)' }}>
-                              Sonraki siparişlerde hızlı seçim
-                            </p>
                           </div>
                         </label>
                         {saveAddressToProfile && (
-                          <input value={newAddressTitle}
-                            onChange={e => setNewAddressTitle(e.target.value)}
+                          <input value={newAddressTitle} onChange={e => setNewAddressTitle(e.target.value)}
                             placeholder="Adres adı: Ev / İş / Diğer..."
                             className="mt-2 w-full px-3 py-2 text-[12px] rounded-lg outline-none"
                             style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', color: 'var(--text-primary)' }} />
@@ -726,20 +696,154 @@ export default function SepetPage() {
 
                 {hasSavedAddresses && selectedSavedAddrId && !editMode && (
                   <button type="button" onClick={() => setEditMode(true)}
-                    className="text-[11px] flex items-center gap-1.5 hover:underline"
-                    style={{ color: 'var(--text-muted)' }}>
+                    className="text-[11px] flex items-center gap-1.5 hover:underline" style={{ color: 'var(--text-muted)' }}>
                     <Edit3 size={10} /> Bu sipariş için adresi değiştir
                   </button>
                 )}
 
+                {/* ─── FATURA BİLGİLERİ ─── */}
+                <div className="pt-4" style={{ borderTop: '1px solid var(--border)' }}>
+                  <div className="flex items-center gap-2 mb-3">
+                    <Receipt size={14} style={{ color: '#F4821F' }} />
+                    <p className="text-[13px] font-bold" style={{ color: 'var(--text-primary)' }}>Fatura Bilgileri</p>
+                  </div>
+
+                  {/* Aynı adres toggle */}
+                  <label className="flex items-center gap-2.5 cursor-pointer p-3 rounded-xl mb-3"
+                    style={{ background: 'var(--bg-secondary)', border: `1.5px solid ${sameBillingAddress ? '#F4821F' : 'var(--border)'}` }}>
+                    <input type="checkbox" checked={sameBillingAddress}
+                      onChange={e => setSameBillingAddress(e.target.checked)} className="accent-[#F4821F]" />
+                    <div>
+                      <p className="text-[12px] font-bold" style={{ color: 'var(--text-primary)' }}>
+                        Teslimat adresi fatura adresi olarak kullanılsın
+                      </p>
+                      {sameBillingAddress && orderForm.customerAddress && (
+                        <p className="text-[11px] mt-0.5" style={{ color: 'var(--text-muted)' }}>
+                          {orderForm.customerAddress}{orderForm.city ? `, ${orderForm.district}/${orderForm.city}` : ''}
+                        </p>
+                      )}
+                    </div>
+                  </label>
+
+                  {/* Farklı fatura adresi */}
+                  {!sameBillingAddress && (
+                    <div className="space-y-3 mb-3">
+                      <div>
+                        <label className="block text-[11px] font-bold uppercase tracking-[1px] mb-1.5" style={{ color: 'var(--text-muted)' }}>
+                          Fatura Adresi <span style={{ color: '#EF4444' }}>*</span>
+                        </label>
+                        <textarea value={billingForm.billingAddress}
+                          onChange={e => setBillingForm(f => ({ ...f, billingAddress: e.target.value }))}
+                          rows={2} placeholder="Fatura adresi..."
+                          className="w-full px-3.5 py-2.5 text-[13px] rounded-xl outline-none resize-none"
+                          style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', color: 'var(--text-primary)' }} />
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-[11px] font-bold uppercase tracking-[1px] mb-1.5" style={{ color: 'var(--text-muted)' }}>Şehir</label>
+                          <input value={billingForm.billingCity}
+                            onChange={e => setBillingForm(f => ({ ...f, billingCity: e.target.value }))}
+                            placeholder="İstanbul" className="w-full px-3.5 py-2.5 text-[13px] rounded-xl outline-none"
+                            style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', color: 'var(--text-primary)' }} />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-bold uppercase tracking-[1px] mb-1.5" style={{ color: 'var(--text-muted)' }}>İlçe</label>
+                          <input value={billingForm.billingDistrict}
+                            onChange={e => setBillingForm(f => ({ ...f, billingDistrict: e.target.value }))}
+                            placeholder="Kadıköy" className="w-full px-3.5 py-2.5 text-[13px] rounded-xl outline-none"
+                            style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', color: 'var(--text-primary)' }} />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Kurumsal fatura */}
+                  <label className="flex items-center gap-2.5 cursor-pointer p-3 rounded-xl"
+                    style={{ background: 'var(--bg-secondary)', border: `1.5px solid ${corporateInvoice ? '#F4821F' : 'var(--border)'}` }}>
+                    <input type="checkbox" checked={corporateInvoice}
+                      onChange={e => setCorporateInvoice(e.target.checked)} className="accent-[#F4821F]" />
+                    <div className="flex items-center gap-1.5">
+                      <Building2 size={13} style={{ color: corporateInvoice ? '#F4821F' : 'var(--text-muted)' }} />
+                      <p className="text-[12px] font-bold" style={{ color: 'var(--text-primary)' }}>Kurumsal fatura istiyorum (e-fatura)</p>
+                    </div>
+                  </label>
+
+                  {corporateInvoice && (
+                    <div className="space-y-3 mt-3">
+                      <div>
+                        <label className="block text-[11px] font-bold uppercase tracking-[1px] mb-1.5" style={{ color: 'var(--text-muted)' }}>
+                          Firma Adı <span style={{ color: '#EF4444' }}>*</span>
+                        </label>
+                        <input value={billingForm.companyName}
+                          onChange={e => setBillingForm(f => ({ ...f, companyName: e.target.value }))}
+                          placeholder="Örnek A.Ş." className="w-full px-3.5 py-2.5 text-[13px] rounded-xl outline-none"
+                          style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', color: 'var(--text-primary)' }} />
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-[11px] font-bold uppercase tracking-[1px] mb-1.5" style={{ color: 'var(--text-muted)' }}>
+                            Vergi No <span style={{ color: '#EF4444' }}>*</span>
+                          </label>
+                          <input value={billingForm.taxNumber}
+                            onChange={e => setBillingForm(f => ({ ...f, taxNumber: e.target.value.replace(/\D/g, '') }))}
+                            placeholder="1234567890" maxLength={11}
+                            className="w-full px-3.5 py-2.5 text-[13px] rounded-xl outline-none font-mono"
+                            style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', color: 'var(--text-primary)' }} />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-bold uppercase tracking-[1px] mb-1.5" style={{ color: 'var(--text-muted)' }}>
+                            Vergi Dairesi <span style={{ color: '#EF4444' }}>*</span>
+                          </label>
+                          <input value={billingForm.taxOffice}
+                            onChange={e => setBillingForm(f => ({ ...f, taxOffice: e.target.value }))}
+                            placeholder="Kadıköy V.D." className="w-full px-3.5 py-2.5 text-[13px] rounded-xl outline-none"
+                            style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', color: 'var(--text-primary)' }} />
+                        </div>
+                      </div>
+                      <p className="text-[11px] p-2.5 rounded-lg" style={{ background: 'rgba(244,130,31,0.06)', color: 'var(--text-secondary)' }}>
+                        ℹ️ Kurumsal faturanız sipariş tesliminden sonra e-posta ile iletilecektir.
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Not */}
                 <div>
-                  <label className="block text-[11px] font-bold uppercase tracking-[1px] mb-1.5"
-                    style={{ color: 'var(--text-muted)' }}>Not (opsiyonel)</label>
-                  <textarea value={orderForm.notes}
-                    onChange={e => setOrderForm(f => ({ ...f, notes: e.target.value }))}
+                  <label className="block text-[11px] font-bold uppercase tracking-[1px] mb-1.5" style={{ color: 'var(--text-muted)' }}>
+                    Not (opsiyonel)
+                  </label>
+                  <textarea value={orderForm.notes} onChange={e => setOrderForm(f => ({ ...f, notes: e.target.value }))}
                     rows={2} placeholder="Acele, hızlı kargo vb."
                     className="w-full px-3.5 py-2.5 text-[13px] rounded-xl outline-none resize-none"
                     style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', color: 'var(--text-primary)' }} />
+                </div>
+
+                {/* ─── ŞARTLAR ONAY KUTUSU ─── */}
+                <div className="rounded-xl p-3"
+                  style={{ background: 'rgba(244,130,31,0.05)', border: `1px solid ${termsAccepted ? 'rgba(244,130,31,0.4)' : 'rgba(244,130,31,0.2)'}` }}>
+                  <label className="flex items-start gap-2.5 cursor-pointer">
+                    <div onClick={() => setTermsAccepted(o => !o)}
+                      className="w-5 h-5 rounded-md flex items-center justify-center flex-shrink-0 mt-0.5 transition-all"
+                      style={{
+                        background: termsAccepted ? '#F4821F' : 'var(--bg-secondary)',
+                        border: termsAccepted ? '2px solid #F4821F' : '2px solid var(--border)',
+                      }}>
+                      {termsAccepted && <Check size={11} className="text-white" />}
+                    </div>
+                    <p className="text-[12px] leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
+                      <a href="/iade-kosullari" target="_blank"
+                        className="font-bold underline hover:text-[#F4821F]"
+                        style={{ color: 'var(--text-primary)' }}>
+                        Satış koşullarını ve iade şartlarını
+                      </a>
+                      {' '}okudum, anladım ve kabul ediyorum. Kişiye özel üretilen ürünlerde cayma hakkımın bulunmadığını onaylıyorum.
+                    </p>
+                  </label>
+                  {!termsAccepted && (
+                    <p className="text-[10px] mt-2 ml-7" style={{ color: '#F59E0B' }}>
+                      Devam etmek için şartları kabul etmeniz gerekiyor
+                    </p>
+                  )}
                 </div>
               </div>
 
@@ -751,7 +855,7 @@ export default function SepetPage() {
                   style={{ border: '1px solid var(--border)', color: 'var(--text-secondary)', background: 'var(--bg-secondary)' }}>
                   İptal
                 </button>
-                <button onClick={submitCatalogOrder} disabled={orderSubmitting}
+                <button onClick={submitCatalogOrder} disabled={orderSubmitting || !termsAccepted}
                   className="flex-1 flex items-center justify-center gap-2 py-3 text-[13px] font-bold text-white rounded-xl disabled:opacity-50"
                   style={{ background: 'linear-gradient(135deg, #F4821F, #e07010)' }}>
                   {orderSubmitting
