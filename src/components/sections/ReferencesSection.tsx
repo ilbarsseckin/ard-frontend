@@ -60,7 +60,6 @@ export default function ReferencesSection() {
 
         {/* Başlık */}
         <div className="flex flex-col sm:flex-row sm:items-end justify-between mb-10 gap-3">
-
           <p className="text-[13px] max-w-[220px] text-right"
             style={{ color: 'var(--text-muted)', fontFamily: 'Georgia, serif' }}>
             {active.length}+ kurumsal müşteri,<br />binlerce başarılı proje
