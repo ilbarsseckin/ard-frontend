@@ -71,6 +71,7 @@ export default function SepetPage() {
 
   // Şartlar
   const [termsAccepted, setTermsAccepted] = useState(false)
+  const [mesafeliAccepted, setMesafeliAccepted] = useState(false)
 
   const hasSavedAddresses = isLoggedIn && addresses.length > 0
   const showFullAddressForm = !hasSavedAddresses || editMode
@@ -173,8 +174,8 @@ export default function SepetPage() {
       if (!billingForm.taxNumber.trim()) { toast.error('Vergi numarası zorunlu'); return }
       if (!billingForm.taxOffice.trim()) { toast.error('Vergi dairesi zorunlu'); return }
     }
-    if (!termsAccepted) {
-      toast.error('Lütfen satış koşullarını ve iade şartlarını kabul edin'); return
+    if (!termsAccepted || !mesafeliAccepted) {
+      toast.error('Lütfen tüm sözleşme ve koşulları kabul edin'); return
     }
     if (catalogItems.length === 0) { toast.error('Sepet boş'); return }
 
@@ -231,6 +232,7 @@ export default function SepetPage() {
       setSameBillingAddress(true)
       setCorporateInvoice(false)
       setTermsAccepted(false)
+      setMesafeliAccepted(false)
       setSelectedSavedAddrId('')
       setEditMode(false)
       router.push(`/odeme-katalog?siparisNo=${data.orderNumber}`)
@@ -819,29 +821,56 @@ export default function SepetPage() {
                 </div>
 
                 {/* ─── ŞARTLAR ONAY KUTUSU ─── */}
-                <div className="rounded-xl p-3"
-                  style={{ background: 'rgba(244,130,31,0.05)', border: `1px solid ${termsAccepted ? 'rgba(244,130,31,0.4)' : 'rgba(244,130,31,0.2)'}` }}>
-                  <label className="flex items-start gap-2.5 cursor-pointer">
-                    <div onClick={() => setTermsAccepted(o => !o)}
-                      className="w-5 h-5 rounded-md flex items-center justify-center flex-shrink-0 mt-0.5 transition-all"
-                      style={{
-                        background: termsAccepted ? '#F4821F' : 'var(--bg-secondary)',
-                        border: termsAccepted ? '2px solid #F4821F' : '2px solid var(--border)',
-                      }}>
-                      {termsAccepted && <Check size={11} className="text-white" />}
-                    </div>
-                    <p className="text-[12px] leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
-                      <a href="/iade-kosullari" target="_blank"
-                        className="font-bold underline hover:text-[#F4821F]"
-                        style={{ color: 'var(--text-primary)' }}>
-                        Satış koşullarını ve iade şartlarını
-                      </a>
-                      {' '}okudum, anladım ve kabul ediyorum. Kişiye özel üretilen ürünlerde cayma hakkımın bulunmadığını onaylıyorum.
-                    </p>
-                  </label>
-                  {!termsAccepted && (
-                    <p className="text-[10px] mt-2 ml-7" style={{ color: '#F59E0B' }}>
-                      Devam etmek için şartları kabul etmeniz gerekiyor
+                <div className="space-y-2">
+                  {/* İade koşulları */}
+                  <div className="rounded-xl p-3"
+                    style={{ background: 'rgba(244,130,31,0.05)', border: `1px solid ${termsAccepted ? 'rgba(244,130,31,0.4)' : 'rgba(244,130,31,0.15)'}` }}>
+                    <label className="flex items-start gap-2.5 cursor-pointer">
+                      <div onClick={() => setTermsAccepted(o => !o)}
+                        className="w-5 h-5 rounded-md flex items-center justify-center flex-shrink-0 mt-0.5 transition-all"
+                        style={{
+                          background: termsAccepted ? '#F4821F' : 'var(--bg-secondary)',
+                          border: termsAccepted ? '2px solid #F4821F' : '2px solid var(--border)',
+                        }}>
+                        {termsAccepted && <Check size={11} className="text-white" />}
+                      </div>
+                      <p className="text-[12px] leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
+                        <a href="/iade-kosullari" target="_blank"
+                          className="font-bold underline hover:text-[#F4821F]"
+                          style={{ color: 'var(--text-primary)' }}>
+                          İptal ve iade koşullarını
+                        </a>
+                        {' '}okudum, kabul ediyorum. Kişiye özel üretilen ürünlerde cayma hakkımın bulunmadığını onaylıyorum.
+                      </p>
+                    </label>
+                  </div>
+
+                  {/* Mesafeli satış sözleşmesi */}
+                  <div className="rounded-xl p-3"
+                    style={{ background: 'rgba(244,130,31,0.05)', border: `1px solid ${mesafeliAccepted ? 'rgba(244,130,31,0.4)' : 'rgba(244,130,31,0.15)'}` }}>
+                    <label className="flex items-start gap-2.5 cursor-pointer">
+                      <div onClick={() => setMesafeliAccepted(o => !o)}
+                        className="w-5 h-5 rounded-md flex items-center justify-center flex-shrink-0 mt-0.5 transition-all"
+                        style={{
+                          background: mesafeliAccepted ? '#F4821F' : 'var(--bg-secondary)',
+                          border: mesafeliAccepted ? '2px solid #F4821F' : '2px solid var(--border)',
+                        }}>
+                        {mesafeliAccepted && <Check size={11} className="text-white" />}
+                      </div>
+                      <p className="text-[12px] leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
+                        <a href="/mesafeli-satis" target="_blank"
+                          className="font-bold underline hover:text-[#F4821F]"
+                          style={{ color: 'var(--text-primary)' }}>
+                          Mesafeli Satış Sözleşmesi'ni
+                        </a>
+                        {' '}okudum, anladım ve kabul ediyorum.
+                      </p>
+                    </label>
+                  </div>
+
+                  {(!termsAccepted || !mesafeliAccepted) && (
+                    <p className="text-[10px] px-1" style={{ color: '#F59E0B' }}>
+                      ⚠️ Devam etmek için her iki onayı da vermeniz gerekiyor
                     </p>
                   )}
                 </div>
@@ -855,7 +884,7 @@ export default function SepetPage() {
                   style={{ border: '1px solid var(--border)', color: 'var(--text-secondary)', background: 'var(--bg-secondary)' }}>
                   İptal
                 </button>
-                <button onClick={submitCatalogOrder} disabled={orderSubmitting || !termsAccepted}
+                <button onClick={submitCatalogOrder} disabled={orderSubmitting || !termsAccepted || !mesafeliAccepted}
                   className="flex-1 flex items-center justify-center gap-2 py-3 text-[13px] font-bold text-white rounded-xl disabled:opacity-50"
                   style={{ background: 'linear-gradient(135deg, #F4821F, #e07010)' }}>
                   {orderSubmitting
